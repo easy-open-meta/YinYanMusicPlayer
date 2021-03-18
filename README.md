@@ -2,6 +2,8 @@
 
 #### 介绍
 一款本地/网络音乐播放器，界面最初基于网易云界面设计，该项目由罗良健先生捐献！
+未来的维护工作将交由咖啡与网络(Java&Net Open source Organization)负责。
+该项目的版权及著作权归罗良健先生及咖啡与网络(Java&Net Open source Organization)所有！
 
 #### 软件架构
 软件架构说明
