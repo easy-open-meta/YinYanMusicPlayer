@@ -87,6 +87,8 @@ StyleCopReport.xml
 *.pidb
 *.svclog
 *.scc
+*.bat
+*.ps1
 
 # Chutzpah Test files
 _Chutzpah*
@@ -339,3 +341,31 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database 
 healthchecksdb
+
+# MAUI / Android
+*.apk
+*.aab
+*.apks
+*.keystore
+!debug.keystore
+*.jks
+*.dsym
+*.zip
+*.key
+*.p12
+Properties/AndroidManifest.xml
+Properties/launchSettings.json
+
+# App secrets
+appsettings.Development.json
+appsettings.Local.json
+*.env
+test_login.json
+
+# EF Core migrations snapshot (keep migrations, ignore snapshot backup)
+*.bak
+/.codegraph
+/.workbuddy/memory/2026-09-12.md
+/src/YinYanMusic.Api/wwwroot/media/image
+/.workbuddy
+/docs

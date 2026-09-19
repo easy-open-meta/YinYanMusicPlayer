@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/YinYanMusic.Api/YinYanMusic.Api.csproj" />
+    <Project Path="src/YinYanMusic.App/YinYanMusic.App.csproj" />
+    <Project Path="src/YinYanMusic.Core/YinYanMusic.Core.csproj" />
+    <Project Path="src/YinYanMusic.Application/YinYanMusic.Application.csproj" Id="ffee2b67-3f6b-4a10-b901-57da259c91eb" />
+    <Project Path="src/YinYanMusic.Data/YinYanMusic.Data.csproj" Id="21ca549d-8845-4c76-b1f2-98c3b6d82f7f" />
+    <Project Path="src/YinYanMusic.Scanner/YinYanMusic.Scanner.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/YinYanMusic.Tests/YinYanMusic.Tests.csproj" />
+  </Folder>
+</Solution>

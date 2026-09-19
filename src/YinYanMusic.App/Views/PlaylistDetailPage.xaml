@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dtos="clr-namespace:YinYanMusic.Core.Dtos;assembly=YinYanMusic.Core"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             x:Class="YinYanMusic.App.Views.PlaylistDetailPage"
+             x:Name="RootPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,12" RowSpacing="14">
+
+        <Button Grid.Row="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}" BackgroundColor="Transparent"
+                TextColor="{DynamicResource Accent}" HorizontalOptions="Start" Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+
+        <Grid Grid.Row="1" ColumnDefinitions="110,*" ColumnSpacing="16">
+            <Frame Grid.Column="0" CornerRadius="12" Padding="0" IsClippedToBounds="True" HeightRequest="110"
+                   BackgroundColor="{DynamicResource Primary}">
+                <Image Source="{Binding CoverUrl}" Aspect="AspectFill" HeightRequest="110"/>
+            </Frame>
+            <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                <Label Text="{Binding Name}" FontSize="22" FontAttributes="Bold" LineBreakMode="TailTruncation"/>
+                <Label Text="{Binding OwnerName}" FontSize="13" TextColor="{StaticResource Gray500}"/>
+                <Label Text="{Binding Description}" FontSize="12" TextColor="{StaticResource Gray500}"
+                       LineBreakMode="TailTruncation" MaxLines="2"/>
+                <HorizontalStackLayout Spacing="10" Margin="0,4,0,0">
+                    <Button Text="{Binding IsCollected, Converter={StaticResource CollectedText}}"
+                            Command="{Binding ToggleCollectCommand}" CornerRadius="18"
+                            BackgroundColor="{StaticResource CardBackground}" TextColor="{DynamicResource Accent}"
+                            HeightRequest="36" Padding="14,0">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsOwner}" Value="True">
+                                <Setter Property="IsEnabled" Value="False"/>
+                                <Setter Property="TextColor" Value="{StaticResource Gray300}"/>
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                    <Button FontFamily="MaterialIcons" Text="&#xE872;" Command="{Binding DeletePlaylistCommand}" CornerRadius="18"
+                            BackgroundColor="{StaticResource CardBackground}" TextColor="{StaticResource Danger}"
+                            HeightRequest="36" WidthRequest="36" Padding="0" IsVisible="{Binding IsOwner}" FontSize="18"/>
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </Grid>
+
+        <Button Grid.Row="2" Text="▶  播放全部音乐" Command="{Binding PlayAllCommand}" CornerRadius="20"
+                BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}" HeightRequest="40" HorizontalOptions="Fill" FontSize="16"/>
+
+        <CollectionView Grid.Row="3" ItemsSource="{Binding Songs}" SelectionMode="None">
+            <CollectionView.EmptyView>
+                <Label Text="歌单还没有歌曲" TextColor="{StaticResource Gray500}" HorizontalOptions="Center" Padding="0,40"/>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="dtos:SongDto">
+                    <Grid Padding="4,10" ColumnDefinitions="36,*,Auto,Auto" ColumnSpacing="10">
+                        <Grid.Behaviors>
+                            <behaviors:PressFeedbackBehavior />
+                        </Grid.Behaviors>
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.PlaySongCommand}" CommandParameter="{Binding .}"/>
+                        </Grid.GestureRecognizers>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroupList>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Property="Opacity" Value="0.5"/>
+                                            <Setter Property="Scale" Value="0.97"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateGroupList>
+                        </VisualStateManager.VisualStateGroups>
+                        <Frame Grid.Column="0" CornerRadius="4" Padding="0" IsClippedToBounds="True" HeightRequest="32" WidthRequest="32" BackgroundColor="{StaticResource Gray300}" HorizontalOptions="Center" InputTransparent="True">
+                            <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                        </Frame>
+                        <VerticalStackLayout Grid.Column="1" Spacing="2">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE838;" FontSize="12" TextColor="#FFD700" IsVisible="{Binding IsLiked}" VerticalOptions="Center"/>
+                                <Label Grid.Column="1" Text="{Binding Title}" FontSize="15" LineBreakMode="TailTruncation"/>
+                            </Grid>
+                            <Label Text="{Binding ArtistName}" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                        </VerticalStackLayout>
+                        <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
+                               FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                        <Button Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE5D4;" Clicked="OnMoreClicked"
+                                CommandParameter="{Binding .}" BackgroundColor="Transparent" TextColor="{StaticResource Gray500}"
+                                FontSize="16" Padding="0" WidthRequest="30" HeightRequest="30"/>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dtos="clr-namespace:YinYanMusic.Core.Dtos;assembly=YinYanMusic.Core"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             x:Class="YinYanMusic.App.Views.ZonePage"
+             x:Name="RootPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}"
+             Title="专区">
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- 分区头部：底色/名称/宣传语/图标全部来自 Categories 数据（导航查询串带入） -->
+        <Frame Grid.Row="0" CornerRadius="0" Padding="16,8,20,20" BackgroundColor="{Binding ColorHex}" HasShadow="False">
+            <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
+                <Button Grid.Row="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
+                        BackgroundColor="Transparent" TextColor="White" HorizontalOptions="Start"
+                        Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+                <HorizontalStackLayout Grid.Row="1" Spacing="10" Margin="4,6,0,0">
+                    <Label FontFamily="MaterialIcons" Text="{Binding IconGlyph}" FontSize="22" TextColor="White" VerticalOptions="Center"/>
+                    <Label Text="{Binding Name}" FontSize="24" FontAttributes="Bold" TextColor="White" VerticalOptions="Center"/>
+                </HorizontalStackLayout>
+                <Label Grid.Row="2" Text="{Binding Slogan}" FontSize="13" TextColor="White" Opacity="0.9"
+                       Margin="6,0,0,0" LineBreakMode="TailTruncation" MaxLines="1"
+                       IsVisible="{Binding Slogan, Converter={StaticResource StringNotEmpty}}"/>
+            </Grid>
+        </Frame>
+
+        <!-- 该分区下的公开歌单 -->
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="16,14" Spacing="10">
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{DynamicResource Accent}"/>
+                <CollectionView ItemsSource="{Binding Playlists}" SelectionMode="None">
+                    <CollectionView.EmptyView>
+                        <Label Text="该专区还没有公开歌单" TextColor="{StaticResource Gray500}"
+                               HorizontalOptions="Center" Padding="0,60"/>
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="dtos:PlaylistDto">
+                            <Grid Padding="4,8" ColumnDefinitions="56,*,Auto" ColumnSpacing="12">
+                                <Grid.Behaviors>
+                                    <behaviors:PressFeedbackBehavior />
+                                </Grid.Behaviors>
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenPlaylistCommand}"
+                                        CommandParameter="{Binding .}"/>
+                                </Grid.GestureRecognizers>
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroupList>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal"/>
+                                            <VisualState x:Name="Pressed">
+                                                <VisualState.Setters>
+                                                    <Setter Property="Opacity" Value="0.5"/>
+                                                    <Setter Property="Scale" Value="0.97"/>
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateGroupList>
+                                </VisualStateManager.VisualStateGroups>
+                                <!-- 封面：无图回退到歌单图标占位 -->
+                                <Grid Grid.Column="0" HeightRequest="56" WidthRequest="56">
+                                    <Frame CornerRadius="8" Padding="0" IsClippedToBounds="True" HeightRequest="56" WidthRequest="56"
+                                           BackgroundColor="{DynamicResource PrimarySoft}">
+                                        <Label FontFamily="MaterialIcons" Text="&#xE03D;" FontSize="22"
+                                               TextColor="{DynamicResource Accent}" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                    </Frame>
+                                    <Frame CornerRadius="8" Padding="0" IsClippedToBounds="True" HeightRequest="56" WidthRequest="56"
+                                           BackgroundColor="Transparent"
+                                           IsVisible="{Binding CoverUrl, Converter={StaticResource StringNotEmpty}}">
+                                        <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                                    </Frame>
+                                </Grid>
+                                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                    <Label Text="{Binding Name}" FontSize="15" LineBreakMode="TailTruncation"/>
+                                    <Label Text="{Binding OwnerName}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+                                </VerticalStackLayout>
+                                <Label Grid.Column="2" Text="{Binding TrackCount, StringFormat='{0} 首'}"
+                                       FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

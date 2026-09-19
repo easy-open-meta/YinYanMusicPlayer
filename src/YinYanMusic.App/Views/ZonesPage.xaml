@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dtos="clr-namespace:YinYanMusic.Core.Dtos;assembly=YinYanMusic.Core"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             x:Class="YinYanMusic.App.Views.ZonesPage"
+             x:Name="RootPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}"
+             Title="音乐专区">
+
+    <Grid RowDefinitions="Auto,*" Padding="16,12" RowSpacing="12">
+
+        <!-- 顶栏：返回 + 标题 -->
+        <Grid Grid.Row="0" ColumnDefinitions="40,*,40" VerticalOptions="Center">
+            <Button Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
+                    Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+            <Label Grid.Column="1" Text="音乐专区" FontSize="20" FontAttributes="Bold"
+                   HorizontalOptions="Center" VerticalOptions="Center"/>
+        </Grid>
+
+        <!-- 双列分区网格（对齐网易云「音乐专区」页）：卡片完全由 Categories 数据驱动 -->
+        <ScrollView Grid.Row="1">
+            <CollectionView ItemsSource="{Binding Zones}" SelectionMode="None" Margin="0,0,0,12">
+                <CollectionView.ItemsLayout>
+                    <GridItemsLayout Orientation="Vertical" Span="2"
+                                     HorizontalItemSpacing="12" VerticalItemSpacing="12"/>
+                </CollectionView.ItemsLayout>
+                <CollectionView.EmptyView>
+                    <Label Text="暂无专区" TextColor="{StaticResource Gray500}" HorizontalOptions="Center" Padding="0,60"/>
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dtos:CategoryDto">
+                        <Frame HeightRequest="96" CornerRadius="14" Padding="14"
+                               BackgroundColor="{Binding ColorHex}" HasShadow="False">
+                            <Grid RowDefinitions="Auto,*" RowSpacing="6">
+                                <Grid.Behaviors>
+                                    <behaviors:PressFeedbackBehavior PressedScale="0.95" PressedOpacity="0.7"/>
+                                </Grid.Behaviors>
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenZoneCommand}"
+                                        CommandParameter="{Binding .}"/>
+                                </Grid.GestureRecognizers>
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroupList>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal"/>
+                                            <VisualState x:Name="Pressed">
+                                                <VisualState.Setters>
+                                                    <Setter Property="Opacity" Value="0.7"/>
+                                                    <Setter Property="Scale" Value="0.97"/>
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateGroupList>
+                                </VisualStateManager.VisualStateGroups>
+                                <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                                    <Label FontFamily="MaterialIcons" Text="{Binding IconGlyph}" FontSize="16" TextColor="White" VerticalOptions="Center"/>
+                                    <Label Text="{Binding Name}" FontSize="16" FontAttributes="Bold" TextColor="White"
+                                           LineBreakMode="TailTruncation" MaxLines="1" VerticalOptions="Center"/>
+                                </HorizontalStackLayout>
+                                <Label Grid.Row="1" Text="{Binding Slogan}" FontSize="11" TextColor="White" Opacity="0.9"
+                                       LineBreakMode="TailTruncation" MaxLines="2" VerticalOptions="Start"/>
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </ScrollView>
+    </Grid>
+</ContentPage>

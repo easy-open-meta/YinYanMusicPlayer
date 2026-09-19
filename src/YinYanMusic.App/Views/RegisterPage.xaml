@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:YinYanMusic.App.ViewModels"
+             x:Class="YinYanMusic.App.Views.RegisterPage"
+             BackgroundColor="{StaticResource PageBackground}">
+
+
+    <Grid RowDefinitions="Auto,*" Padding="32,48">
+        <VerticalStackLayout Grid.Row="0" Spacing="4">
+            <Label Text="创建账号" FontSize="28" FontAttributes="Bold"/>
+            <Label Text="加入音言，开始你的音乐之旅" FontSize="14" TextColor="{StaticResource Gray500}"/>
+        </VerticalStackLayout>
+
+        <VerticalStackLayout Grid.Row="1" Spacing="16" VerticalOptions="Center">
+            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
+                   BorderColor="{StaticResource CardBorder}">
+                <Entry Placeholder="用户名（3-32 个字符）" Text="{Binding UserName}" ReturnType="Next"/>
+            </Frame>
+            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
+                   BorderColor="{StaticResource CardBorder}">
+                <Entry Placeholder="昵称（选填）" Text="{Binding DisplayName}" ReturnType="Next"/>
+            </Frame>
+            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
+                   BorderColor="{StaticResource CardBorder}">
+                <Picker ItemsSource="{Binding Genders}" SelectedItem="{Binding SelectedGender}" Title="性别"/>
+            </Frame>
+            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
+                   BorderColor="{StaticResource CardBorder}">
+                <Entry Placeholder="密码（至少 6 位）" Text="{Binding Password}" IsPassword="True" ReturnType="Next"/>
+            </Frame>
+            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
+                   BorderColor="{StaticResource CardBorder}">
+                <Entry Placeholder="确认密码" Text="{Binding ConfirmPassword}" IsPassword="True" ReturnType="Done"/>
+            </Frame>
+
+            <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Danger}" FontSize="13"/>
+
+            <Button Text="注 册" Command="{Binding RegisterCommand}" IsEnabled="{Binding !IsBusy}"
+                    BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}"
+                    CornerRadius="12" HeightRequest="48" FontSize="16"/>
+
+            <Button Text="返回登录" Command="{Binding BackCommand}"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"/>
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

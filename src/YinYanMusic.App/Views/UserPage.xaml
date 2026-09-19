@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dtos="clr-namespace:YinYanMusic.Core.Dtos;assembly=YinYanMusic.Core"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             x:Class="YinYanMusic.App.Views.UserPage"
+             x:Name="RootPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}"
+             Title="用户">
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- 资料卡：头像 + 昵称 + @用户名 + 关注按钮 + 三列统计 -->
+        <Frame Grid.Row="0" CornerRadius="0" Padding="16,8,16,18" HasShadow="False"
+               BackgroundColor="{StaticResource CardBackground}">
+            <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+                <Button Grid.Row="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
+                        BackgroundColor="Transparent" TextColor="{DynamicResource Accent}" HorizontalOptions="Start"
+                        Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+
+                <Grid Grid.Row="1" ColumnDefinitions="72,*,Auto" ColumnSpacing="14">
+                    <Grid Grid.Column="0" HeightRequest="72" WidthRequest="72">
+                        <Frame CornerRadius="36" Padding="0" IsClippedToBounds="True" HeightRequest="72" WidthRequest="72"
+                               BackgroundColor="{DynamicResource Primary}">
+                            <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="30"
+                                   TextColor="{DynamicResource OnPrimary}" HorizontalOptions="Center" VerticalOptions="Center"/>
+                        </Frame>
+                        <Frame CornerRadius="36" Padding="0" IsClippedToBounds="True" HeightRequest="72" WidthRequest="72"
+                               BackgroundColor="Transparent"
+                               IsVisible="{Binding AvatarUrl, Converter={StaticResource StringNotEmpty}}">
+                            <Image Source="{Binding AvatarUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                        </Frame>
+                    </Grid>
+                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                        <Label Text="{Binding DisplayName}" FontSize="20" FontAttributes="Bold" LineBreakMode="TailTruncation"/>
+                        <Label Text="{Binding UserName, StringFormat='@{0}'}" FontSize="13" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+                    </VerticalStackLayout>
+                    <Button Grid.Column="2" Text="{Binding FollowButtonText}" Command="{Binding ToggleFollowCommand}"
+                            IsVisible="{Binding CanFollow}" CornerRadius="18" HeightRequest="36" WidthRequest="88"
+                            FontSize="14" Padding="0" VerticalOptions="Center"
+                            BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}"/>
+                </Grid>
+
+                <!-- 统计：粉丝 / 关注 / 歌单 -->
+                <Grid Grid.Row="2" ColumnDefinitions="*,*,*" Padding="0,4,0,0">
+                    <VerticalStackLayout Grid.Column="0" Spacing="2" HorizontalOptions="Center">
+                        <Label Text="{Binding FollowersCount}" FontSize="18" FontAttributes="Bold" TextColor="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                        <Label Text="粉丝" FontSize="12" TextColor="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="2" HorizontalOptions="Center">
+                        <Label Text="{Binding FollowingCount}" FontSize="18" FontAttributes="Bold" TextColor="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                        <Label Text="关注" FontSize="12" TextColor="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="2" Spacing="2" HorizontalOptions="Center">
+                        <Label Text="{Binding PlaylistCount}" FontSize="18" FontAttributes="Bold" TextColor="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                        <Label Text="歌单" FontSize="12" TextColor="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                    </VerticalStackLayout>
+                </Grid>
+            </Grid>
+        </Frame>
+
+        <!-- 公开歌单 -->
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="16,14" Spacing="8">
+                <Label Text="TA 的公开歌单" FontSize="18" FontAttributes="Bold" Margin="4,0,0,0"/>
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{DynamicResource Accent}"/>
+                <CollectionView ItemsSource="{Binding Playlists}" SelectionMode="None">
+                    <CollectionView.EmptyView>
+                        <Label Text="暂无公开歌单" TextColor="{StaticResource Gray500}"
+                               HorizontalOptions="Center" Padding="0,40"/>
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="dtos:PlaylistDto">
+                            <Grid Padding="4,8" ColumnDefinitions="56,*,Auto" ColumnSpacing="12">
+                                <Grid.Behaviors>
+                                    <behaviors:PressFeedbackBehavior />
+                                </Grid.Behaviors>
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenPlaylistCommand}"
+                                        CommandParameter="{Binding .}"/>
+                                </Grid.GestureRecognizers>
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroupList>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal"/>
+                                            <VisualState x:Name="Pressed">
+                                                <VisualState.Setters>
+                                                    <Setter Property="Opacity" Value="0.5"/>
+                                                    <Setter Property="Scale" Value="0.97"/>
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateGroupList>
+                                </VisualStateManager.VisualStateGroups>
+                                <Grid Grid.Column="0" HeightRequest="56" WidthRequest="56">
+                                    <Frame CornerRadius="8" Padding="0" IsClippedToBounds="True" HeightRequest="56" WidthRequest="56"
+                                           BackgroundColor="{DynamicResource PrimarySoft}">
+                                        <Label FontFamily="MaterialIcons" Text="&#xE03D;" FontSize="22"
+                                               TextColor="{DynamicResource Accent}" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                    </Frame>
+                                    <Frame CornerRadius="8" Padding="0" IsClippedToBounds="True" HeightRequest="56" WidthRequest="56"
+                                           BackgroundColor="Transparent"
+                                           IsVisible="{Binding CoverUrl, Converter={StaticResource StringNotEmpty}}">
+                                        <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                                    </Frame>
+                                </Grid>
+                                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                    <Label Text="{Binding Name}" FontSize="15" LineBreakMode="TailTruncation"/>
+                                    <Label Text="{Binding TrackCount, StringFormat='{0} 首'}" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                                </VerticalStackLayout>
+                                <Label Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE5CC;" FontSize="16"
+                                       TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

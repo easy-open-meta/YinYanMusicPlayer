@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:YinYanMusic.App.ViewModels"
+             x:Class="YinYanMusic.App.Views.LoginPage"
+             BackgroundColor="{StaticResource PageBackground}">
+
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="32,64">
+        <VerticalStackLayout Grid.Row="0" Spacing="8" HorizontalOptions="Center">
+            <Label Text="音 言" FontSize="42" FontAttributes="Bold" TextColor="#512BD4"
+                   HorizontalOptions="Center"/>
+            <Label Text="让每一首歌，都有回响" FontSize="15" TextColor="{StaticResource Gray500}"
+                   HorizontalOptions="Center"/>
+        </VerticalStackLayout>
+
+        <VerticalStackLayout Grid.Row="1" Spacing="16" VerticalOptions="Center">
+            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
+                   BorderColor="{StaticResource CardBorder}">
+                <Entry Placeholder="用户名" Text="{Binding UserName}" ReturnType="Next"/>
+            </Frame>
+            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
+                   BorderColor="{StaticResource CardBorder}">
+                <Entry Placeholder="密码" Text="{Binding Password}" IsPassword="True" ReturnType="Done"/>
+            </Frame>
+
+            <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Danger}"
+                   FontSize="13" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmpty}}"/>
+
+            <Button Text="登 录" Command="{Binding LoginCommand}" IsEnabled="{Binding !IsBusy}"
+                    BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}"
+                    CornerRadius="12" HeightRequest="48" FontSize="16"/>
+
+            <Button Text="没有账号？立即注册" Command="{Binding GoRegisterCommand}"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"/>
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

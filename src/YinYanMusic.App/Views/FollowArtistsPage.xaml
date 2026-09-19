@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dtos="clr-namespace:YinYanMusic.Core.Dtos;assembly=YinYanMusic.Core"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             x:Class="YinYanMusic.App.Views.FollowArtistsPage"
+             x:Name="RootPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}"
+             Title="关注">
+
+    <Grid RowDefinitions="Auto,*" Padding="16,12" RowSpacing="8">
+
+        <Grid Grid.Row="0" ColumnDefinitions="40,*,40" VerticalOptions="Center">
+            <Button Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
+                    Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+            <Label Grid.Column="1" Text="关注" FontSize="20" FontAttributes="Bold"
+                   HorizontalOptions="Center" VerticalOptions="Center"/>
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="8">
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{DynamicResource Accent}"/>
+
+                <!-- 用户区 -->
+                <VerticalStackLayout IsVisible="{Binding HasUsers}" Spacing="4">
+                    <Label Text="用户" FontSize="16" FontAttributes="Bold" Margin="4,4,0,0"/>
+                    <CollectionView ItemsSource="{Binding Users}" SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="dtos:UserDto">
+                                <Grid Padding="4,8" ColumnDefinitions="52,*,Auto" ColumnSpacing="12">
+                                    <Grid.Behaviors>
+                                        <behaviors:PressFeedbackBehavior />
+                                    </Grid.Behaviors>
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenUserCommand}"
+                                            CommandParameter="{Binding .}"/>
+                                    </Grid.GestureRecognizers>
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroupList>
+                                            <VisualStateGroup x:Name="CommonStates">
+                                                <VisualState x:Name="Normal"/>
+                                                <VisualState x:Name="Pressed">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="Opacity" Value="0.5"/>
+                                                        <Setter Property="Scale" Value="0.97"/>
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                            </VisualStateGroup>
+                                        </VisualStateGroupList>
+                                    </VisualStateManager.VisualStateGroups>
+                                    <Grid Grid.Column="0" HeightRequest="52" WidthRequest="52">
+                                        <Frame CornerRadius="26" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
+                                               BackgroundColor="{DynamicResource PrimarySoft}">
+                                            <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="22"
+                                                   TextColor="{DynamicResource Accent}" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                        </Frame>
+                                        <Frame CornerRadius="26" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
+                                               BackgroundColor="Transparent"
+                                               IsVisible="{Binding AvatarUrl, Converter={StaticResource StringNotEmpty}}">
+                                            <Image Source="{Binding AvatarUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                                        </Frame>
+                                    </Grid>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                        <Label Text="{Binding DisplayName}" FontSize="15" LineBreakMode="TailTruncation"/>
+                                        <Label Text="{Binding UserName, StringFormat='@{0}'}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="2" Text="用户" FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+
+                <!-- 歌手区 -->
+                <VerticalStackLayout IsVisible="{Binding HasArtists}" Spacing="4">
+                    <Label Text="歌手" FontSize="16" FontAttributes="Bold" Margin="4,4,0,0"/>
+                    <CollectionView ItemsSource="{Binding Artists}" SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="dtos:ArtistDto">
+                                <Grid Padding="4,8" ColumnDefinitions="52,*,Auto" ColumnSpacing="12">
+                                    <Grid.Behaviors>
+                                        <behaviors:PressFeedbackBehavior />
+                                    </Grid.Behaviors>
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenArtistCommand}"
+                                            CommandParameter="{Binding .}"/>
+                                    </Grid.GestureRecognizers>
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroupList>
+                                            <VisualStateGroup x:Name="CommonStates">
+                                                <VisualState x:Name="Normal"/>
+                                                <VisualState x:Name="Pressed">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="Opacity" Value="0.5"/>
+                                                        <Setter Property="Scale" Value="0.97"/>
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                            </VisualStateGroup>
+                                        </VisualStateGroupList>
+                                    </VisualStateManager.VisualStateGroups>
+                                    <Grid Grid.Column="0" HeightRequest="52" WidthRequest="52">
+                                        <Frame CornerRadius="26" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
+                                               BackgroundColor="{DynamicResource PrimarySoft}">
+                                            <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="22"
+                                                   TextColor="{DynamicResource Accent}" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                        </Frame>
+                                        <Frame CornerRadius="26" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
+                                               BackgroundColor="Transparent"
+                                               IsVisible="{Binding AvatarUrl, Converter={StaticResource StringNotEmpty}}">
+                                            <Image Source="{Binding AvatarUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                                        </Frame>
+                                    </Grid>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                        <Label Text="{Binding Name}" FontSize="15" LineBreakMode="TailTruncation"/>
+                                        <Label Text="歌手" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE5CC;" FontSize="16"
+                                           TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+
+                <Label IsVisible="{Binding HasAny, Converter={StaticResource InverseBool}}"
+                       Text="还没有关注，去歌曲菜单或播放页关注歌手，或在用户主页关注用户"
+                       TextColor="{StaticResource Gray500}" HorizontalOptions="Center" Padding="0,60"/>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

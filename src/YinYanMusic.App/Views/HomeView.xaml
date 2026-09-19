@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:YinYanMusic.App.ViewModels"
+             xmlns:dtos="clr-namespace:YinYanMusic.Core.Dtos;assembly=YinYanMusic.Core"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             x:Class="YinYanMusic.App.Views.HomeView"
+             x:Name="RootView">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="18" Padding="16,4,16,12">
+
+            <!-- 应用头部：左缩进避让左上角汉堡按钮，与按钮垂直居中对齐 -->
+            <HorizontalStackLayout Spacing="12" Margin="40,4,0,0">
+                <!-- 源文件是 Resources/Images/logo.svg，MAUI 会在构建时转成 PNG，这里必须用 .png 引用 -->
+                <Image Source="logo.png" HeightRequest="44" WidthRequest="44"/>
+                <VerticalStackLayout Spacing="0" VerticalOptions="Center">
+                    <Label Text="音言音乐" FontSize="22" FontAttributes="Bold" TextColor="{DynamicResource Accent}"/>
+                    <Label Text="发现好音乐" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+
+            <!-- 音乐专区：数据驱动（Categories 表的 Slogan/ColorHex/IconGlyph），点卡片进分区详情页 -->
+            <Grid ColumnDefinitions="*,Auto" Padding="4,0,4,0">
+                <Label Text="音乐专区" FontSize="20" FontAttributes="Bold"/>
+                <HorizontalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                    <HorizontalStackLayout.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding Source={x:Reference RootView}, Path=BindingContext.OpenZonesCommand}"/>
+                    </HorizontalStackLayout.GestureRecognizers>
+                    <Label Text="更多" FontSize="13" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                    <Label FontFamily="MaterialIcons" Text="&#xE5CC;" FontSize="14" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                </HorizontalStackLayout>
+            </Grid>
+            <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Padding="4,0">
+                <HorizontalStackLayout BindableLayout.ItemsSource="{Binding Categories}" Spacing="12">
+                    <BindableLayout.EmptyView>
+                        <Label Text="暂无专区" FontSize="13" TextColor="{StaticResource Gray500}" Padding="0,30"/>
+                    </BindableLayout.EmptyView>
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="dtos:CategoryDto">
+                            <Frame WidthRequest="156" HeightRequest="92" CornerRadius="14" Padding="14"
+                                   BackgroundColor="{Binding ColorHex}" HasShadow="False">
+                                <Grid RowDefinitions="Auto,*" RowSpacing="6">
+                                    <Grid.Behaviors>
+                                        <behaviors:PressFeedbackBehavior PressedScale="0.95" PressedOpacity="0.7"/>
+                                    </Grid.Behaviors>
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={x:Reference RootView}, Path=BindingContext.OpenZoneCommand}"
+                                            CommandParameter="{Binding .}"/>
+                                    </Grid.GestureRecognizers>
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroupList>
+                                            <VisualStateGroup x:Name="CommonStates">
+                                                <VisualState x:Name="Normal"/>
+                                                <VisualState x:Name="Pressed">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="Opacity" Value="0.7"/>
+                                                        <Setter Property="Scale" Value="0.97"/>
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                            </VisualStateGroup>
+                                        </VisualStateGroupList>
+                                    </VisualStateManager.VisualStateGroups>
+                                    <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                                        <Label FontFamily="MaterialIcons" Text="{Binding IconGlyph}" FontSize="16" TextColor="White" VerticalOptions="Center"/>
+                                        <Label Text="{Binding Name}" FontSize="16" FontAttributes="Bold" TextColor="White"
+                                               LineBreakMode="TailTruncation" MaxLines="1" VerticalOptions="Center"/>
+                                    </HorizontalStackLayout>
+                                    <Label Grid.Row="1" Text="{Binding Slogan}" FontSize="11" TextColor="White" Opacity="0.9"
+                                           LineBreakMode="TailTruncation" MaxLines="2" VerticalOptions="Start"/>
+                                </Grid>
+                            </Frame>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+            </ScrollView>
+
+            <!-- 热门歌曲 -->
+            <Label Text="热门歌曲" FontSize="20" FontAttributes="Bold"/>
+            <CollectionView ItemsSource="{Binding HotSongs}" SelectionMode="None">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dtos:SongDto">
+                        <Grid Padding="4,10" ColumnDefinitions="44,*,Auto,Auto" ColumnSpacing="12">
+                            <Grid.Behaviors>
+                                <behaviors:PressFeedbackBehavior />
+                            </Grid.Behaviors>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={x:Reference RootView}, Path=BindingContext.PlayHotCommand}"
+                                    CommandParameter="{Binding .}"/>
+                            </Grid.GestureRecognizers>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroupList>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Property="Opacity" Value="0.5"/>
+                                                <Setter Property="Scale" Value="0.97"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateGroupList>
+                            </VisualStateManager.VisualStateGroups>
+                            <Frame Grid.Column="0" CornerRadius="4" Padding="0" IsClippedToBounds="True" HeightRequest="40" WidthRequest="40" BackgroundColor="{StaticResource Gray300}" HorizontalOptions="Center" InputTransparent="True">
+                                <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                            </Frame>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                    <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE838;" FontSize="12" TextColor="#FFD700" IsVisible="{Binding IsLiked}" VerticalOptions="Center"/>
+                                    <Label Grid.Column="1" Text="{Binding Title}" FontSize="15" LineBreakMode="TailTruncation"/>
+                                </Grid>
+                                <Label Text="{Binding ArtistName}" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                            </VerticalStackLayout>
+                            <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
+                                   FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                            <Button Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE5D4;" Clicked="OnMoreClicked"
+                                    CommandParameter="{Binding .}" BackgroundColor="Transparent" TextColor="{StaticResource Gray500}"
+                                    FontSize="16" Padding="0" WidthRequest="30" HeightRequest="30"/>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <!-- 精选歌单 -->
+            <Label Text="精选歌单" FontSize="20" FontAttributes="Bold"/>
+            <CollectionView ItemsSource="{Binding Playlists}" SelectionMode="None" HeightRequest="200">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="12"/>
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dtos:PlaylistDto">
+                        <Grid WidthRequest="140" RowDefinitions="140,40">
+                            <Grid.Behaviors>
+                                <behaviors:PressFeedbackBehavior PressedScale="0.95" PressedOpacity="0.7"/>
+                            </Grid.Behaviors>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={x:Reference RootView}, Path=BindingContext.OpenPlaylistCommand}"
+                                    CommandParameter="{Binding .}"/>
+                            </Grid.GestureRecognizers>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroupList>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Property="Opacity" Value="0.5"/>
+                                                <Setter Property="Scale" Value="0.95"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateGroupList>
+                            </VisualStateManager.VisualStateGroups>
+                            <Frame Grid.Row="0" CornerRadius="12" Padding="0" IsClippedToBounds="True"
+                                   BackgroundColor="{DynamicResource Primary}">
+                                <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill" HeightRequest="140"/>
+                            </Frame>
+                            <Label Grid.Row="1" Text="{Binding Name}" FontSize="13" LineBreakMode="TailTruncation"
+                                   VerticalOptions="Center"/>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{DynamicResource Accent}"/>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

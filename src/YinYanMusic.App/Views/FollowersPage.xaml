@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dtos="clr-namespace:YinYanMusic.Core.Dtos;assembly=YinYanMusic.Core"
+             x:Class="YinYanMusic.App.Views.FollowersPage"
+             x:Name="RootPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}"
+             Title="粉丝">
+
+    <Grid RowDefinitions="Auto,*" Padding="16,12" RowSpacing="8">
+
+        <Grid Grid.Row="0" ColumnDefinitions="40,*,40" VerticalOptions="Center">
+            <Button Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
+                    Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+            <Label Grid.Column="1" Text="粉丝" FontSize="20" FontAttributes="Bold"
+                   HorizontalOptions="Center" VerticalOptions="Center"/>
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="8">
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{DynamicResource Accent}"/>
+                <CollectionView ItemsSource="{Binding Followers}" SelectionMode="None">
+                    <CollectionView.EmptyView>
+                        <Label Text="暂无粉丝" TextColor="{StaticResource Gray500}"
+                               HorizontalOptions="Center" Padding="0,60"/>
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="dtos:UserDto">
+                            <Grid Padding="4,8" ColumnDefinitions="52,*,Auto" ColumnSpacing="12">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroupList>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal"/>
+                                            <VisualState x:Name="Pressed">
+                                                <VisualState.Setters>
+                                                    <Setter Property="Opacity" Value="0.5"/>
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateGroupList>
+                                </VisualStateManager.VisualStateGroups>
+                                <!-- 头像：无图回退到人形占位 -->
+                                <Grid Grid.Column="0" HeightRequest="52" WidthRequest="52">
+                                    <Frame CornerRadius="26" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
+                                           BackgroundColor="{DynamicResource PrimarySoft}">
+                                        <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="22"
+                                               TextColor="{DynamicResource Accent}" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                    </Frame>
+                                    <Frame CornerRadius="26" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
+                                           BackgroundColor="Transparent"
+                                           IsVisible="{Binding AvatarUrl, Converter={StaticResource StringNotEmpty}}">
+                                        <Image Source="{Binding AvatarUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                                    </Frame>
+                                </Grid>
+                                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                    <Label Text="{Binding DisplayName}" FontSize="15" LineBreakMode="TailTruncation"/>
+                                    <Label Text="{Binding UserName, StringFormat='@{0}'}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+                                </VerticalStackLayout>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

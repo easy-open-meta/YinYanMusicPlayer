@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:dtos="clr-namespace:YinYanMusic.Core.Dtos;assembly=YinYanMusic.Core"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             x:Class="YinYanMusic.App.Views.LibraryView"
+             x:Name="RootView">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="18" Padding="16,4,16,12">
+
+            <!-- 页面标题：与左上角汉堡按钮垂直居中对齐 -->
+            <Grid HeightRequest="44" Margin="40,4,0,0">
+                <Label Text="我的" FontSize="22" FontAttributes="Bold" TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+            </Grid>
+
+            <!-- 个人信息卡 -->
+            <Frame CornerRadius="16" Padding="16" HasShadow="False" BackgroundColor="{StaticResource CardBackground}">
+                <VerticalStackLayout Spacing="14">
+                    <HorizontalStackLayout Spacing="14">
+                        <!-- 头像：无头像时回退到占位图标 -->
+                        <Grid HeightRequest="64" WidthRequest="64">
+                            <Frame CornerRadius="32" Padding="0" IsClippedToBounds="True" HeightRequest="64" WidthRequest="64"
+                                   BackgroundColor="{DynamicResource Primary}" HorizontalOptions="Center" VerticalOptions="Center">
+                                <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="28" TextColor="{DynamicResource OnPrimary}" HorizontalOptions="Center" VerticalOptions="Center"/>
+                            </Frame>
+                            <Frame CornerRadius="32" Padding="0" IsClippedToBounds="True" HeightRequest="64" WidthRequest="64"
+                                   BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center"
+                                   IsVisible="{Binding AvatarUrl, Converter={StaticResource StringNotEmpty}}">
+                                <Image Source="{Binding AvatarUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                            </Frame>
+                        </Grid>
+                        <VerticalStackLayout Spacing="4" VerticalOptions="Center">
+                            <Label Text="{Binding DisplayName}" FontSize="20" FontAttributes="Bold" TextColor="{StaticResource Gray500}"/>
+                            <Label Text="{Binding Gender}" FontSize="13" TextColor="{StaticResource Gray500}"
+                                   IsVisible="{Binding Gender, Converter={StaticResource StringNotEmpty}}"/>
+                        </VerticalStackLayout>
+                    </HorizontalStackLayout>
+
+                    <!-- 统计：关注 / 歌单 / 粉丝（三列均可点击进入对应列表页） -->
+                    <Grid ColumnDefinitions="*,*,*" Padding="0,10,0,0">
+                        <VerticalStackLayout Grid.Column="0" Spacing="2" HorizontalOptions="Center">
+                            <VerticalStackLayout.Behaviors>
+                                <behaviors:PressFeedbackBehavior PressedScale="0.94" PressedOpacity="0.55"/>
+                            </VerticalStackLayout.Behaviors>
+                            <VerticalStackLayout.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenFollowingCommand}"/>
+                            </VerticalStackLayout.GestureRecognizers>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroupList>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Property="Opacity" Value="0.5"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateGroupList>
+                            </VisualStateManager.VisualStateGroups>
+                            <Label Text="{Binding FollowingCount}" FontSize="18" FontAttributes="Bold" TextColor="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                            <Label Text="关注" FontSize="12" TextColor="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" Spacing="2" HorizontalOptions="Center">
+                            <VerticalStackLayout.Behaviors>
+                                <behaviors:PressFeedbackBehavior PressedScale="0.94" PressedOpacity="0.55"/>
+                            </VerticalStackLayout.Behaviors>
+                            <VerticalStackLayout.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenMyPlaylistsCommand}"/>
+                            </VerticalStackLayout.GestureRecognizers>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroupList>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Property="Opacity" Value="0.5"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateGroupList>
+                            </VisualStateManager.VisualStateGroups>
+                            <Label Text="{Binding MyPlaylistCount}" FontSize="18" FontAttributes="Bold" TextColor="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                            <Label Text="歌单" FontSize="12" TextColor="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="2" Spacing="2" HorizontalOptions="Center">
+                            <VerticalStackLayout.Behaviors>
+                                <behaviors:PressFeedbackBehavior PressedScale="0.94" PressedOpacity="0.55"/>
+                            </VerticalStackLayout.Behaviors>
+                            <VerticalStackLayout.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenFollowersCommand}"/>
+                            </VerticalStackLayout.GestureRecognizers>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroupList>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Property="Opacity" Value="0.5"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateGroupList>
+                            </VisualStateManager.VisualStateGroups>
+                            <Label Text="{Binding FollowersCount}" FontSize="18" FontAttributes="Bold" TextColor="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                            <Label Text="粉丝" FontSize="12" TextColor="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                        </VerticalStackLayout>
+                    </Grid>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- 我的歌单 -->
+            <Grid ColumnDefinitions="*,Auto">
+                <HorizontalStackLayout Grid.Column="0" Spacing="4">
+                    <Label Text="我的歌单" FontSize="18" FontAttributes="Bold" VerticalOptions="Center"/>
+                    <Label Text="{Binding MyPlaylistCount, StringFormat='({0})'}" FontSize="14" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                </HorizontalStackLayout>
+                <Button Grid.Column="1" Text="＋ 新建" Command="{Binding CreatePlaylistCommand}"
+                        BackgroundColor="Transparent" TextColor="{DynamicResource Accent}" Padding="0"/>
+            </Grid>
+            <CollectionView ItemsSource="{Binding MyPlaylists}" SelectionMode="None">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dtos:PlaylistDto">
+                        <Grid Padding="4,8" ColumnDefinitions="48,*" ColumnSpacing="12">
+                            <Grid.Behaviors>
+                                <behaviors:PressFeedbackBehavior />
+                            </Grid.Behaviors>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={x:Reference RootView}, Path=BindingContext.OpenPlaylistCommand}"
+                                    CommandParameter="{Binding .}"/>
+                            </Grid.GestureRecognizers>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroupList>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Property="Opacity" Value="0.5"/>
+                                                <Setter Property="Scale" Value="0.97"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateGroupList>
+                            </VisualStateManager.VisualStateGroups>
+                            <Frame Grid.Column="0" CornerRadius="10" Padding="0" IsClippedToBounds="True" HeightRequest="48"
+                                   BackgroundColor="{DynamicResource Primary}" InputTransparent="True">
+                                <Grid>
+                                    <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="20" TextColor="{DynamicResource OnPrimary}" HorizontalOptions="Center" VerticalOptions="Center">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding Id}" Value="0">
+                                                <Setter Property="Text" Value="&#xE83A;"/>
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                    <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill" BackgroundColor="Transparent" HorizontalOptions="Fill" VerticalOptions="Fill"/>
+                                </Grid>
+                            </Frame>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                <Label Text="{Binding Name}" FontSize="15" LineBreakMode="TailTruncation"/>
+                                <Label Text="{Binding TrackCount, StringFormat='{0} 首'}" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <!-- 收藏歌单 -->
+            <HorizontalStackLayout Spacing="4">
+                <Label Text="收藏的歌单" FontSize="18" FontAttributes="Bold" VerticalOptions="Center"/>
+                <Label Text="{Binding CollectedPlaylistCount, StringFormat='({0})'}" FontSize="14" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+            </HorizontalStackLayout>
+            <CollectionView ItemsSource="{Binding CollectedPlaylists}" SelectionMode="None">
+                <CollectionView.EmptyView>
+                    <Label Text="暂无收藏歌单" TextColor="{StaticResource Gray500}" FontSize="13"/>
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dtos:PlaylistDto">
+                        <Grid Padding="4,8" ColumnDefinitions="48,*" ColumnSpacing="12">
+                            <Grid.Behaviors>
+                                <behaviors:PressFeedbackBehavior />
+                            </Grid.Behaviors>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={x:Reference RootView}, Path=BindingContext.OpenPlaylistCommand}"
+                                    CommandParameter="{Binding .}"/>
+                            </Grid.GestureRecognizers>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroupList>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Property="Opacity" Value="0.5"/>
+                                                <Setter Property="Scale" Value="0.97"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateGroupList>
+                            </VisualStateManager.VisualStateGroups>
+                            <Frame Grid.Column="0" CornerRadius="10" Padding="0" IsClippedToBounds="True" HeightRequest="48"
+                                   BackgroundColor="{StaticResource Gray500}" InputTransparent="True">
+                                <Grid>
+                                    <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="20" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                    <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill" BackgroundColor="Transparent" HorizontalOptions="Fill" VerticalOptions="Fill"/>
+                                </Grid>
+                            </Frame>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                <Label Text="{Binding Name}" FontSize="15" LineBreakMode="TailTruncation"/>
+                                <Label Text="{Binding OwnerName, StringFormat='by {0}'}" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                            </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{DynamicResource Accent}"/>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

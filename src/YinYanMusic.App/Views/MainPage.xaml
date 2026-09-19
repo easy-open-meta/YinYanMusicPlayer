@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             xmlns:views="clr-namespace:YinYanMusic.App.Views"
+             x:Class="YinYanMusic.App.Views.MainPage"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <Grid RowDefinitions="*,Auto,Auto">
+
+        <!-- 内容区：首页 / 我的（各 Tab 自行控制顶部间距，首页 logo 与汉堡按钮同一行对齐） -->
+        <Grid Grid.Row="0" x:Name="ContentHost"/>
+
+        <!-- 迷你播放条 -->
+        <Grid Grid.Row="1" x:Name="MiniPlayer" IsVisible="False" BackgroundColor="{StaticResource CardBackground}"
+              RowDefinitions="Auto,Auto" Padding="0" RowSpacing="0">
+            <Grid Grid.Row="0" x:Name="MiniProgressContainer" HeightRequest="20" VerticalOptions="Start">
+                <BoxView x:Name="MiniProgressTrack" BackgroundColor="#E0E0E0"
+                         HeightRequest="3" VerticalOptions="Start" HorizontalOptions="Fill"/>
+                <BoxView x:Name="MiniProgressFill" BackgroundColor="{DynamicResource Accent}"
+                         HeightRequest="3" VerticalOptions="Start" HorizontalOptions="Start" WidthRequest="0"/>
+                <Slider x:Name="MiniProgressSlider" Opacity="0.01"
+                        Minimum="0" Maximum="1" Value="0"
+                        HorizontalOptions="Fill" VerticalOptions="Fill"
+                        DragCompleted="OnMiniProgressDragCompleted"/>
+            </Grid>
+            <Grid Grid.Row="1" Padding="14,8" ColumnDefinitions="44,10,*,Auto,Auto,Auto,Auto" ColumnSpacing="0">
+                <Grid.Behaviors>
+                    <behaviors:PressFeedbackBehavior PressedScale="0.98" PressedOpacity="0.7"/>
+                </Grid.Behaviors>
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnMiniPlayerTapped"/>
+                </Grid.GestureRecognizers>
+                <Image Grid.Column="0" x:Name="MiniCover" Aspect="AspectFill" HeightRequest="44" WidthRequest="44"
+                       Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}"/>
+                <VerticalStackLayout Grid.Column="2" Spacing="1" VerticalOptions="Center">
+                    <Label Text="{Binding CurrentTitle}" FontSize="14" FontAttributes="Bold" LineBreakMode="TailTruncation"/>
+                    <Label Text="{Binding CurrentArtist}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+                </VerticalStackLayout>
+                <Button Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE045;" Clicked="OnPreviousClicked"
+                        BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="16" Padding="0"
+                        WidthRequest="28" HeightRequest="28" MinimumWidthRequest="0" MinimumHeightRequest="0"/>
+                <Button Grid.Column="4" FontFamily="MaterialIcons" Text="{Binding IsPlaying, Converter={StaticResource BoolToPlayPause}}"
+                        Clicked="OnToggleClicked" CornerRadius="18" HeightRequest="36" WidthRequest="36"
+                        BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}" FontSize="18" Padding="0"
+                        MinimumWidthRequest="0" MinimumHeightRequest="0"/>
+                <Button Grid.Column="5" FontFamily="MaterialIcons" Text="&#xE044;" Clicked="OnNextClicked"
+                        BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="16" Padding="0"
+                        WidthRequest="28" HeightRequest="28" MinimumWidthRequest="0" MinimumHeightRequest="0"/>
+                <Button Grid.Column="6" FontFamily="MaterialIcons" Text="&#xE03D;" Clicked="OnQueueClicked"
+                        BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="16" Padding="0"
+                        WidthRequest="28" HeightRequest="28" MinimumWidthRequest="0" MinimumHeightRequest="0"/>
+            </Grid>
+        </Grid>
+
+        <!-- 底部导航 -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" HeightRequest="52" BackgroundColor="{StaticResource CardBackground}">
+            <Button Grid.Column="0" x:Name="TabHome" Text="发现" Clicked="OnTabHomeClicked" CornerRadius="0"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="15"/>
+            <Button Grid.Column="1" x:Name="TabSearch" Text="搜索" Clicked="OnTabSearchClicked" CornerRadius="0"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="15"/>
+            <Button Grid.Column="2" x:Name="TabLibrary" Text="我的" Clicked="OnTabLibraryClicked" CornerRadius="0"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="15"/>
+        </Grid>
+
+        <!-- 常驻播放器内核（隐藏但持续播放） -->
+        <toolkit:MediaElement x:Name="Player" Grid.Row="0" WidthRequest="1" HeightRequest="1"
+                              HorizontalOptions="End" VerticalOptions="Start"
+                              ShouldAutoPlay="True"/>
+
+        <!-- 播放列表浮窗 -->
+        <Grid x:Name="QueueOverlay" IsVisible="False" Grid.RowSpan="3" BackgroundColor="#80000000">
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnOverlayBackgroundTapped"/>
+            </Grid.GestureRecognizers>
+            <Frame CornerRadius="16" Padding="0" HeightRequest="420" BackgroundColor="White"
+                   VerticalOptions="End" Margin="0,0,0,0">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,14" BackgroundColor="{StaticResource CardBackground}">
+                        <Label Text="播放列表" FontSize="18" FontAttributes="Bold"/>
+                        <Button Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE5CD;" Clicked="OnCloseQueueClicked"
+                                BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="18" Padding="0" WidthRequest="36" HeightRequest="36"/>
+                    </Grid>
+                    <CollectionView Grid.Row="1" x:Name="QueueList" SelectionMode="Single" SelectionChanged="OnQueueSelectionChanged" Margin="0,4">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="views:QueueItem">
+                                <Grid Padding="16,10" ColumnDefinitions="28,*,Auto,Auto" ColumnSpacing="8">
+                                    <Grid.Behaviors>
+                                        <behaviors:PressFeedbackBehavior />
+                                    </Grid.Behaviors>
+                                    <Label Grid.Column="0" Text="{Binding IndexText}" FontSize="13" TextColor="{StaticResource Gray500}"
+                                           VerticalOptions="Center" HorizontalTextAlignment="Center"/>
+            <VerticalStackLayout Grid.Column="1" Spacing="1" Margin="10,0,0,0" VerticalOptions="Center">
+                                        <Label Text="{Binding Title}" FontSize="14" LineBreakMode="TailTruncation"/>
+                                        <Label Text="{Binding Artist}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
+                                           FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                                    <Label Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE037;" FontSize="14"
+                                           TextColor="{DynamicResource Accent}" VerticalOptions="Center" IsVisible="{Binding IsCurrent}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <Label Grid.Row="2" x:Name="QueueCountLabel" FontSize="12" TextColor="{StaticResource Gray500}"
+                           Padding="16,8" BackgroundColor="{StaticResource CardBackground}"/>
+                </Grid>
+            </Frame>
+        </Grid>
+
+        <!-- 左上角“更多/设置”按钮（三条横线图标） -->
+        <Button x:Name="MenuButton" Grid.Row="0"
+                FontFamily="MaterialIcons" Text="&#xE5D2;"
+                BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}"
+                WidthRequest="40" HeightRequest="40" CornerRadius="20"
+                Padding="0" HorizontalOptions="Start" VerticalOptions="Start"
+                Margin="10,10,0,0" Clicked="OnMenuClicked"
+                MinimumWidthRequest="0" MinimumHeightRequest="0" ZIndex="50"/>
+
+        <!-- 左侧滑出抽屉 -->
+        <Grid x:Name="DrawerOverlay" Grid.RowSpan="3" IsVisible="False" ZIndex="100">
+            <BoxView x:Name="DrawerBackdrop" BackgroundColor="#80000000" InputTransparent="False">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnDrawerBackdropTapped"/>
+                </BoxView.GestureRecognizers>
+            </BoxView>
+            <VerticalStackLayout x:Name="DrawerPanel" HorizontalOptions="Start" WidthRequest="300"
+                                 BackgroundColor="{DynamicResource CardBackground}" Spacing="0">
+                <Grid ColumnDefinitions="*,Auto" Padding="20,26,16,18" BackgroundColor="{DynamicResource Primary}">
+                    <Label Text="设置" FontSize="20" FontAttributes="Bold" TextColor="{DynamicResource OnPrimary}" VerticalOptions="Center"/>
+                    <Button Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE5CD;"
+                            BackgroundColor="Transparent" TextColor="{DynamicResource OnPrimary}"
+                            FontSize="20" Padding="0" WidthRequest="36" HeightRequest="36"
+                            MinimumWidthRequest="0" MinimumHeightRequest="0" Clicked="OnDrawerCloseClicked"/>
+                </Grid>
+                <Grid RowDefinitions="Auto,Auto,Auto" Padding="6">
+                    <Grid x:Name="ThemeColorRow" ColumnDefinitions="*,Auto" Padding="16,14">
+                        <Grid.Behaviors>
+                            <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                        </Grid.Behaviors>
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnThemeColorClicked"/>
+                        </Grid.GestureRecognizers>
+                        <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                            <Label FontFamily="MaterialIcons" Text="&#xE40A;" FontSize="22" TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+                            <Label Text="主题颜色" FontSize="16" VerticalOptions="Center"/>
+                        </HorizontalStackLayout>
+                        <Label x:Name="CurrentThemeLabel" Grid.Column="1" Text="紫色" FontSize="13" TextColor="{DynamicResource Gray500}" VerticalOptions="Center"/>
+                    </Grid>
+                    <BoxView Grid.Row="1" HeightRequest="1" BackgroundColor="{DynamicResource CardBorder}" Margin="16,0"/>
+                    <Grid x:Name="LogoutRow" Grid.Row="2" Padding="16,14">
+                        <Grid.Behaviors>
+                            <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                        </Grid.Behaviors>
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnDrawerLogoutClicked"/>
+                        </Grid.GestureRecognizers>
+                        <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                            <Label FontFamily="MaterialIcons" Text="&#xE879;" FontSize="22" TextColor="{DynamicResource Danger}" VerticalOptions="Center"/>
+                            <Label Text="退出登录" FontSize="16" TextColor="{DynamicResource Danger}" VerticalOptions="Center"/>
+                        </HorizontalStackLayout>
+                    </Grid>
+                </Grid>
+            </VerticalStackLayout>
+        </Grid>
+
+        <!-- 主题颜色选择浮窗 -->
+        <Grid x:Name="ThemePickerOverlay" Grid.RowSpan="3" IsVisible="False" ZIndex="200">
+            <BoxView x:Name="ThemePickerBackdrop" BackgroundColor="#80000000" InputTransparent="False">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnThemePickerBackdropTapped"/>
+                </BoxView.GestureRecognizers>
+            </BoxView>
+            <VerticalStackLayout x:Name="ThemePickerCard" VerticalOptions="Center" HorizontalOptions="Center"
+                                 WidthRequest="320" BackgroundColor="{DynamicResource CardBackground}"
+                                 Padding="24" Spacing="18" >
+                <Label Text="选择主题颜色" FontSize="18" FontAttributes="Bold"/>
+                <Grid x:Name="ThemeSwatches" ColumnDefinitions="*,*,*,*,*" RowSpacing="18" ColumnSpacing="12"/>
+                <Button Text="取消" Clicked="OnThemePickerCancel" BackgroundColor="Transparent"
+                        TextColor="{DynamicResource Gray500}" Padding="0"/>
+            </VerticalStackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>

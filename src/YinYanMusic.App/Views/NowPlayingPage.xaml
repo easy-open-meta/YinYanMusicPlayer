@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:views="clr-namespace:YinYanMusic.App.Views"
+             x:Class="YinYanMusic.App.Views.NowPlayingPage"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource NowPlayingBackground}">
+
+    <Grid>
+        <!-- 色彩亚克力背景：当前封面做模糊 + 深色玻璃叠层（不随主题色变化） -->
+        <Grid x:Name="AcrylicBackdrop" InputTransparent="True" IsClippedToBounds="True">
+            <Image x:Name="AcrylicCover"
+                   Source="{Binding Player.CoverUrl, Converter={StaticResource AbsoluteUrl}}"
+                   Aspect="AspectFill" Opacity="0.55"/>
+            <BoxView x:Name="AcrylicTint">
+                <BoxView.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#241F3A" Offset="0" />
+                        <GradientStop Color="#100E1C" Offset="1" />
+                    </LinearGradientBrush>
+                </BoxView.Background>
+            </BoxView>
+        </Grid>
+
+        <Grid RowDefinitions="48,*,Auto" Padding="24,12" RowSpacing="8">
+
+            <Grid Grid.Row="0" ColumnDefinitions="40,*,40" VerticalOptions="Center">
+                <Button Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE5C4;" BackgroundColor="Transparent" TextColor="White"
+                        Command="{Binding BackCommand}" FontSize="22" Padding="0" WidthRequest="40" HeightRequest="40"/>
+                <Label Grid.Column="1" Text="{Binding Player.SourceName}" FontSize="13" TextColor="{StaticResource Gray400}"
+                       HorizontalOptions="Center" VerticalOptions="Center" LineBreakMode="TailTruncation" MaxLines="1"/>
+            </Grid>
+
+            <Grid Grid.Row="1" x:Name="VinylDisc" WidthRequest="260" HeightRequest="260"
+                  HorizontalOptions="Center" VerticalOptions="Center">
+                <Ellipse Fill="#1a1a1a" WidthRequest="260" HeightRequest="260"/>
+                <Ellipse Fill="#2a2a2a" WidthRequest="245" HeightRequest="245"/>
+                <Ellipse Fill="#1a1a1a" WidthRequest="235" HeightRequest="235"/>
+                <Ellipse Fill="#2a2a2a" WidthRequest="225" HeightRequest="225"/>
+                <Ellipse Fill="#1a1a1a" WidthRequest="215" HeightRequest="215"/>
+                <Ellipse Fill="#2a2a2a" WidthRequest="205" HeightRequest="205"/>
+                <Ellipse Fill="#1a1a1a" WidthRequest="195" HeightRequest="195"/>
+                <Frame CornerRadius="70" Padding="0" IsClippedToBounds="True"
+                       WidthRequest="140" HeightRequest="140"
+                       BackgroundColor="#333" VerticalOptions="Center" HorizontalOptions="Center">
+                    <Image x:Name="CoverImage" Source="{Binding Player.CoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                </Frame>
+
+            </Grid>
+
+            <VerticalStackLayout Grid.Row="2" Spacing="4" Margin="0,0,0,16">
+                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
+                    <VerticalStackLayout Grid.Column="0" Spacing="2">
+                        <!-- 歌名 + 音质标签：歌名超宽时跑马灯往返滚动（容器裁剪 + 代码驱动平移动画）；标签随扩展名自动显示/隐藏 -->
+                        <HorizontalStackLayout Spacing="8">
+                            <Grid x:Name="TitleMarquee" HeightRequest="30" IsClippedToBounds="True" VerticalOptions="Center">
+                                <HorizontalStackLayout x:Name="MarqueeTrack" Spacing="48" VerticalOptions="Center">
+                                    <Label x:Name="TitleLabel" Text="{Binding Player.CurrentTitle}" FontSize="22" FontAttributes="Bold" TextColor="White"
+                                           LineBreakMode="NoWrap" VerticalOptions="Center"/>
+                                    <!-- 副本：无缝循环的第二份歌名，仅在文本溢出需要滚动时显示 -->
+                                    <Label x:Name="MarqueeCopy" IsVisible="False" Text="{Binding Player.CurrentTitle}" FontSize="22" FontAttributes="Bold" TextColor="White"
+                                           LineBreakMode="NoWrap" VerticalOptions="Center"/>
+                                </HorizontalStackLayout>
+                            </Grid>
+                            <Frame x:Name="QualityBadge" IsVisible="{Binding Player.QualityLabel, Converter={StaticResource StringNotEmpty}}"
+                                   BackgroundColor="{DynamicResource Primary}" BorderColor="Transparent" CornerRadius="4"
+                                   Padding="6,1" Margin="0" HasShadow="False" VerticalOptions="Center">
+                                <Label Text="{Binding Player.QualityLabel}" FontSize="11" FontAttributes="Bold" TextColor="{DynamicResource OnPrimary}"/>
+                            </Frame>
+                        </HorizontalStackLayout>
+                        <HorizontalStackLayout Spacing="6">
+                            <Label x:Name="ArtistLabel" Text="{Binding Player.CurrentArtist}" FontSize="14" TextColor="{StaticResource Gray400}"
+                                   LineBreakMode="TailTruncation" VerticalOptions="Center">
+                                <Label.Behaviors>
+                                    <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                                </Label.Behaviors>
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnArtistTapped"/>
+                                </Label.GestureRecognizers>
+                            </Label>
+                            <!-- 关注歌手：未关注显示 +，已关注显示 ✓（再点一次取消关注） -->
+                            <Button x:Name="FollowArtistButton" IsVisible="{Binding CanFollowArtist}"
+                                    FontFamily="MaterialIcons" Text="&#xE145;" Command="{Binding ToggleFollowArtistCommand}"
+                                    BackgroundColor="Transparent" TextColor="{StaticResource Gray400}" FontSize="18"
+                                    Padding="0" WidthRequest="24" HeightRequest="24"
+                                    MinimumWidthRequest="0" MinimumHeightRequest="0" VerticalOptions="Center">
+                                <Button.Triggers>
+                                    <DataTrigger TargetType="Button" Binding="{Binding IsArtistFollowed}" Value="True">
+                                        <Setter Property="Text" Value="&#xE5CA;"/>
+                                        <Setter Property="TextColor" Value="{DynamicResource Primary}"/>
+                                    </DataTrigger>
+                                </Button.Triggers>
+                            </Button>
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE83A;" Command="{Binding ToggleLikeCommand}"
+                            BackgroundColor="Transparent" TextColor="{StaticResource Gray400}" FontSize="22"
+                            Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0"
+                            VerticalOptions="Center">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsLiked}" Value="True">
+                                <Setter Property="Text" Value="&#xE838;"/>
+                                <Setter Property="TextColor" Value="#FFD700"/>
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                </Grid>
+
+                <Grid ColumnDefinitions="40,*,40" ColumnSpacing="8" Margin="0,0,0,0">
+                    <Label Grid.Column="0" Text="{Binding Player.PositionSeconds, Converter={StaticResource SecondsToTime}}"
+                           FontSize="11" TextColor="{StaticResource Gray400}" VerticalOptions="Center"/>
+                    <Slider x:Name="ProgressSlider" Grid.Column="1"
+                            Value="0" Maximum="1"
+                            MinimumTrackColor="{DynamicResource Primary}" MaximumTrackColor="{StaticResource Gray500}"
+                            ThumbColor="White" DragCompleted="OnProgressDragCompleted"/>
+                    <Label Grid.Column="2" Text="{Binding Player.DurationSeconds, Converter={StaticResource SecondsToTime}}"
+                           FontSize="11" TextColor="{StaticResource Gray400}" VerticalOptions="Center"/>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,40,40,52,40,40,40,*" ColumnSpacing="6" Margin="0,12,0,0" HorizontalOptions="Center">
+                    <Button Grid.Column="1" FontFamily="MaterialIcons" Text="{Binding Player.PlayModeIcon}" Command="{Binding CyclePlayModeCommand}"
+                            BackgroundColor="Transparent" TextColor="White" FontSize="20"
+                            Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0"/>
+                    <Button Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE045;" Command="{Binding PreviousCommand}" BackgroundColor="Transparent"
+                            TextColor="White" FontSize="20" Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0"/>
+                    <Button Grid.Column="3" FontFamily="MaterialIcons" Text="{Binding Player.IsPlaying, Converter={StaticResource BoolToPlayPause}}"
+
+                            Command="{Binding ToggleCommand}" CornerRadius="26" HeightRequest="52" WidthRequest="52"
+                            BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}" FontSize="24" Padding="0" MinimumWidthRequest="0"/>
+                    <Button Grid.Column="4" FontFamily="MaterialIcons" Text="&#xE044;" Command="{Binding NextCommand}" BackgroundColor="Transparent"
+                            TextColor="White" FontSize="20" Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0"/>
+                    <Button Grid.Column="5" x:Name="VolumeButton" FontFamily="MaterialIcons" Text="&#xE050;" BackgroundColor="Transparent" TextColor="White" FontSize="18"
+                            Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0" Clicked="OnVolumeButtonClicked">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding Player.Volume}" Value="0">
+                                <Setter Property="Text" Value="&#xE04F;"/>
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                    <Button Grid.Column="6" FontFamily="MaterialIcons" Text="&#xE03D;" Clicked="OnQueueClicked"
+                            BackgroundColor="Transparent" TextColor="White" FontSize="18"
+                            Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0"/>
+
+                </Grid>
+            </VerticalStackLayout>
+        </Grid>
+
+
+        <Grid x:Name="CoverPreviewOverlay" IsVisible="False" InputTransparent="False">
+            <BoxView BackgroundColor="#CC000000">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnCoverPreviewBackgroundTapped"/>
+                </BoxView.GestureRecognizers>
+            </BoxView>
+            <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="20" Padding="20">
+                <Grid WidthRequest="340" HeightRequest="380">
+                    <Frame CornerRadius="16" Padding="0" IsClippedToBounds="True"
+                           WidthRequest="340" HeightRequest="340"
+                           BackgroundColor="#222" VerticalOptions="Start" HorizontalOptions="Center">
+                        <Image x:Name="PreviewImage" Aspect="AspectFill"/>
+                    </Frame>
+                    <Button FontFamily="MaterialIcons" Text="&#xE5CD;"
+                            BackgroundColor="#99000000" TextColor="White"
+                            CornerRadius="20" WidthRequest="40" HeightRequest="40" FontSize="18"
+                            HorizontalOptions="End" VerticalOptions="Start"
+                            Padding="0" Clicked="OnCoverPreviewCloseClicked"/>
+                </Grid>
+                <Button Text="保存封面" Clicked="OnSaveCoverClicked"
+                        BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}"
+                        CornerRadius="22" HeightRequest="44" WidthRequest="140"
+                        HorizontalOptions="Center" FontSize="14" Padding="0"/>
+            </VerticalStackLayout>
+        </Grid>
+
+        <Grid x:Name="VolumePopupOverlay" IsVisible="False" BackgroundColor="#20000000">
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnVolumePopupOverlayTapped"/>
+            </Grid.GestureRecognizers>
+        </Grid>
+
+        <Frame x:Name="VolumePopup" IsVisible="False"
+               CornerRadius="12" Padding="14,10"
+               BackgroundColor="#1A1A2E"
+               HorizontalOptions="Center" VerticalOptions="End"
+               Margin="0,0,0,82"
+               WidthRequest="240" HeightRequest="56">
+            <Grid ColumnDefinitions="24,*,24" ColumnSpacing="8" VerticalOptions="Center">
+                <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE04F;" FontSize="16" TextColor="White" VerticalOptions="Center"/>
+                <Slider Grid.Column="1" x:Name="VolumeSlider"
+                        Minimum="0" Maximum="1"
+                        MinimumTrackColor="{DynamicResource Primary}" MaximumTrackColor="{StaticResource Gray500}"
+                        ThumbColor="White"
+                        Value="{Binding Player.Volume, Mode=TwoWay}"/>
+                <Label Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE050;" FontSize="16" TextColor="White" VerticalOptions="Center"/>
+            </Grid>
+        </Frame>
+
+        <Grid x:Name="QueueOverlay" IsVisible="False" BackgroundColor="#80000000">
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnQueueOverlayBackgroundTapped"/>
+            </Grid.GestureRecognizers>
+            <Frame CornerRadius="16" Padding="0" HeightRequest="420" BackgroundColor="#1A1A2E"
+                   VerticalOptions="End">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,14" BackgroundColor="#252538">
+                        <Label Text="播放列表" FontSize="18" FontAttributes="Bold" TextColor="White"/>
+                        <Button Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE5CD;" Clicked="OnCloseQueueClicked"
+                                BackgroundColor="Transparent" TextColor="{StaticResource Gray400}" FontSize="18" Padding="0" WidthRequest="36" HeightRequest="36"/>
+                    </Grid>
+                    <CollectionView Grid.Row="1" x:Name="QueueList" SelectionMode="Single" SelectionChanged="OnQueueSelectionChanged" Margin="0,4">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="views:QueueItem">
+                                <Grid Padding="16,10" ColumnDefinitions="28,*,Auto,Auto" ColumnSpacing="8">
+                                    <Grid.Behaviors>
+                                        <behaviors:PressFeedbackBehavior />
+                                    </Grid.Behaviors>
+                                    <Label Grid.Column="0" Text="{Binding IndexText}" FontSize="13" TextColor="{StaticResource Gray400}"
+                                           VerticalOptions="Center" HorizontalTextAlignment="Center"/>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="1" Margin="10,0,0,0" VerticalOptions="Center">
+                                        <Label Text="{Binding Title}" FontSize="14" TextColor="White" LineBreakMode="TailTruncation"/>
+                                        <Label Text="{Binding Artist}" FontSize="12" TextColor="{StaticResource Gray400}" LineBreakMode="TailTruncation"/>
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
+                                           FontSize="12" TextColor="{StaticResource Gray400}" VerticalOptions="Center"/>
+                                    <Label Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE037;" FontSize="14"
+                                           TextColor="{DynamicResource Primary}" VerticalOptions="Center" IsVisible="{Binding IsCurrent}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <Label Grid.Row="2" x:Name="QueueCountLabel" FontSize="12" TextColor="{StaticResource Gray400}"
+                           Padding="16,8" BackgroundColor="#252538"/>
+                </Grid>
+            </Frame>
+        </Grid>
+    </Grid>
+</ContentPage>
