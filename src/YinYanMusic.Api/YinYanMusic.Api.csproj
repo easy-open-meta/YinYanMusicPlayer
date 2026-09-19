@@ -7,12 +7,20 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <!-- Windows 安装形态：以 Windows 服务方式运行（sc create 注册）。
+         Linux/Docker 上不会调用，见 Program.cs 的 OperatingSystem.IsWindows() 守卫。 -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\YinYanMusic.Application\YinYanMusic.Application.csproj" />
     <ProjectReference Include="..\YinYanMusic.Data\YinYanMusic.Data.csproj" />
   </ItemGroup>
+
+  <!-- HTTPS 自签名证书已彻底移除（2026-09-17 定案）：
+       进程内不再内置 HTTPS 端点，生产由 Nginx 反代终结 TLS，容器只跑 HTTP 5116。
+       原来的 `<None Include="YinYanMusic.Api.pfx">` 已删除 —— 该证书被 .gitignore 的
+       *.pfx 排除、不入库，CI 检出里没有它会让 publish 直接 MSB3030 失败。 -->
 
 </Project>

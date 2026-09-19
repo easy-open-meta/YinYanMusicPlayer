@@ -20,7 +20,15 @@
             </Frame>
             <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
                 <Label Text="{Binding Name}" FontSize="22" FontAttributes="Bold" LineBreakMode="TailTruncation"/>
-                <Label Text="{Binding OwnerName}" FontSize="13" TextColor="{StaticResource Gray500}"/>
+                <!-- 作者行 + 标签 chip（没标签时 chip 自动隐藏） -->
+                <HorizontalStackLayout Spacing="8">
+                    <Label Text="{Binding OwnerName}" FontSize="13" TextColor="{StaticResource Gray500}"
+                           VerticalOptions="Center"/>
+                    <Border Style="{StaticResource SurfaceChip}" Padding="9,2" VerticalOptions="Center"
+                            IsVisible="{Binding CategoryName, Converter={StaticResource StringNotEmpty}}">
+                        <Label Text="{Binding CategoryName}" FontSize="11" TextColor="{StaticResource Gray500}"/>
+                    </Border>
+                </HorizontalStackLayout>
                 <Label Text="{Binding Description}" FontSize="12" TextColor="{StaticResource Gray500}"
                        LineBreakMode="TailTruncation" MaxLines="2"/>
                 <HorizontalStackLayout Spacing="10" Margin="0,4,0,0">
@@ -35,9 +43,14 @@
                             </DataTrigger>
                         </Button.Triggers>
                     </Button>
+                    <!-- 编辑：改名 + 选标签（仅自己的非系统歌单） -->
+                    <Button FontFamily="MaterialIcons" Text="&#xE3C9;" Command="{Binding EditPlaylistCommand}" CornerRadius="18"
+                            BackgroundColor="{StaticResource CardBackground}" TextColor="{DynamicResource Accent}"
+                            HeightRequest="36" WidthRequest="36" Padding="0" IsVisible="{Binding CanEdit}" FontSize="18"/>
+                    <!-- 删除：绑定 CanDelete，"我喜欢的音乐"等系统歌单不显示（服务端也会拒绝） -->
                     <Button FontFamily="MaterialIcons" Text="&#xE872;" Command="{Binding DeletePlaylistCommand}" CornerRadius="18"
                             BackgroundColor="{StaticResource CardBackground}" TextColor="{StaticResource Danger}"
-                            HeightRequest="36" WidthRequest="36" Padding="0" IsVisible="{Binding IsOwner}" FontSize="18"/>
+                            HeightRequest="36" WidthRequest="36" Padding="0" IsVisible="{Binding CanDelete}" FontSize="18"/>
                 </HorizontalStackLayout>
             </VerticalStackLayout>
         </Grid>

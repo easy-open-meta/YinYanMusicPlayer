@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:views="clr-namespace:YinYanMusic.App.Views"
@@ -8,16 +8,25 @@
              BackgroundColor="{StaticResource NowPlayingBackground}">
 
     <Grid>
-        <!-- 色彩亚克力背景：当前封面做模糊 + 深色玻璃叠层（不随主题色变化） -->
-        <Grid x:Name="AcrylicBackdrop" InputTransparent="True" IsClippedToBounds="True">
-            <Image x:Name="AcrylicCover"
+        <!-- 动态亚克力背景：三层叠加
+             1) 封面铺底 —— 由平台的 IBlurService 做高斯模糊（Android 12+ 用 RenderEffect，
+                不支持的平台退化成未模糊的封面底图，不影响其余两层）
+             2) 主色叠加 —— 颜色取自当前封面，随切歌动画过渡
+             3) 深色渐变 —— 压暗保证文字可读，不随主题色变化 -->
+        <Grid x:Name="BackdropLayer" InputTransparent="True" IsClippedToBounds="True">
+            <Image x:Name="BackdropCover"
                    Source="{Binding Player.CoverUrl, Converter={StaticResource AbsoluteUrl}}"
                    Aspect="AspectFill" Opacity="0.55"/>
-            <BoxView x:Name="AcrylicTint">
+            <BoxView x:Name="BackdropAccent" Color="Transparent" Opacity="0"/>
+            <BoxView x:Name="BackdropTint">
+                <!-- 渐变必须带 alpha：早期这里用的是不透明色，会把下面的封面和主色整层盖掉，
+                     结果「封面铺底」从来没显示出来过。现在上透下实——
+                     上部留出模糊封面与主色，下部压暗保证歌名和控件可读。 -->
                 <BoxView.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#241F3A" Offset="0" />
-                        <GradientStop Color="#100E1C" Offset="1" />
+                        <GradientStop Color="#3324193A" Offset="0" />
+                        <GradientStop Color="#801F1830" Offset="0.45" />
+                        <GradientStop Color="#D9100E1C" Offset="1" />
                     </LinearGradientBrush>
                 </BoxView.Background>
             </BoxView>
@@ -179,12 +188,12 @@
             </Grid.GestureRecognizers>
         </Grid>
 
-        <Frame x:Name="VolumePopup" IsVisible="False"
-               CornerRadius="12" Padding="14,10"
-               BackgroundColor="#1A1A2E"
-               HorizontalOptions="Center" VerticalOptions="End"
-               Margin="0,0,0,82"
-               WidthRequest="240" HeightRequest="56">
+        <!-- 音量浮窗：水平居中 + 距底 82dp，投影四周都有落点，不需要额外 Margin -->
+        <Border x:Name="VolumePopup" IsVisible="False"
+                Style="{StaticResource SurfacePopupDark}" Padding="14,10"
+                HorizontalOptions="Center" VerticalOptions="End"
+                Margin="0,0,0,82"
+                WidthRequest="240" HeightRequest="56">
             <Grid ColumnDefinitions="24,*,24" ColumnSpacing="8" VerticalOptions="Center">
                 <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE04F;" FontSize="16" TextColor="White" VerticalOptions="Center"/>
                 <Slider Grid.Column="1" x:Name="VolumeSlider"
@@ -194,45 +203,73 @@
                         Value="{Binding Player.Volume, Mode=TwoWay}"/>
                 <Label Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE050;" FontSize="16" TextColor="White" VerticalOptions="Center"/>
             </Grid>
-        </Frame>
+        </Border>
 
         <Grid x:Name="QueueOverlay" IsVisible="False" BackgroundColor="#80000000">
             <Grid.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnQueueOverlayBackgroundTapped"/>
             </Grid.GestureRecognizers>
-            <Frame CornerRadius="16" Padding="0" HeightRequest="420" BackgroundColor="#1A1A2E"
-                   VerticalOptions="End">
-                <Grid RowDefinitions="Auto,*,Auto">
-                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,14" BackgroundColor="#252538">
-                        <Label Text="播放列表" FontSize="18" FontAttributes="Bold" TextColor="White"/>
-                        <Button Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE5CD;" Clicked="OnCloseQueueClicked"
-                                BackgroundColor="Transparent" TextColor="{StaticResource Gray400}" FontSize="18" Padding="0" WidthRequest="36" HeightRequest="36"/>
+            <!-- 播放列表抽屉：全宽贴底，与 MainPage 的同名浮窗同理，投影落在屏幕外。
+                 外层描边（#26FFFFFF）就是亚克力的玻璃高光边。 -->
+            <Border Style="{StaticResource SurfacePanelDark}" Padding="0" HeightRequest="420"
+                    VerticalOptions="End" BackgroundColor="Transparent"
+                    StrokeThickness="1" Stroke="#26FFFFFF">
+                <Grid>
+                    <!-- 亚克力底层：由 IAcrylicImageService 生成的磨砂底图
+                         （封面缩到 40×40 再箱式模糊，放大铺满后是没有细节的柔和色块）。
+                         刻意不用 RenderEffect 去模糊这个 Image：浮窗默认 IsVisible=False、
+                         图片又还没解码完，那样底图会被渲染成纯黑（实测过，整块浮窗就变成纯色）。 -->
+                    <Image x:Name="QueueAcrylicCover" Aspect="AspectFill"/>
+                    <!-- 色调层：上透下实。上部把磨砂色彩放出来（亚克力的关键），
+                         下部压暗保证列表文字始终可读。 -->
+                    <BoxView>
+                        <BoxView.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="#99181422" Offset="0" />
+                                <GradientStop Color="#B8141020" Offset="0.5" />
+                                <GradientStop Color="#CC100D19" Offset="1" />
+                            </LinearGradientBrush>
+                        </BoxView.Background>
+                    </BoxView>
+
+                    <Grid RowDefinitions="Auto,*,Auto">
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,14">
+                                <Label Text="播放列表" FontSize="18" FontAttributes="Bold" TextColor="White"/>
+                                <Button Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE5CD;" Clicked="OnCloseQueueClicked"
+                                        BackgroundColor="Transparent" TextColor="{StaticResource Gray400}" FontSize="18" Padding="0" WidthRequest="36" HeightRequest="36"/>
+                            </Grid>
+                            <!-- SelectionMode=None + 显式 Tap：
+                                 行内 PressFeedbackBehavior 的 PointerGestureRecognizer 在 Android 上会拦截触摸，
+                                 CollectionView 的 SelectionChanged 收不到点击，改为显式 Tap 事件（与首页列表一致） -->
+                            <CollectionView Grid.Row="1" x:Name="QueueList" SelectionMode="None" Margin="0,4">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="views:QueueItem">
+                                        <Grid Padding="16,10" ColumnDefinitions="28,*,Auto,Auto" ColumnSpacing="8">
+                                            <Grid.Behaviors>
+                                                <behaviors:PressFeedbackBehavior />
+                                            </Grid.Behaviors>
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnQueueItemTapped"/>
+                                            </Grid.GestureRecognizers>
+                                            <Label Grid.Column="0" Text="{Binding IndexText}" FontSize="13" TextColor="{StaticResource Gray400}"
+                                                   VerticalOptions="Center" HorizontalTextAlignment="Center"/>
+                                            <VerticalStackLayout Grid.Column="1" Spacing="1" Margin="10,0,0,0" VerticalOptions="Center">
+                                                <Label Text="{Binding Title}" FontSize="14" TextColor="White" LineBreakMode="TailTruncation"/>
+                                                <Label Text="{Binding Artist}" FontSize="12" TextColor="{StaticResource Gray400}" LineBreakMode="TailTruncation"/>
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
+                                               FontSize="12" TextColor="{StaticResource Gray400}" VerticalOptions="Center"/>
+                                        <Label Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE037;" FontSize="14"
+                                               TextColor="{DynamicResource Primary}" VerticalOptions="Center" IsVisible="{Binding IsCurrent}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                            <Label Grid.Row="2" x:Name="QueueCountLabel" FontSize="12" TextColor="{StaticResource Gray400}"
+                                   Padding="16,8"/>
                     </Grid>
-                    <CollectionView Grid.Row="1" x:Name="QueueList" SelectionMode="Single" SelectionChanged="OnQueueSelectionChanged" Margin="0,4">
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="views:QueueItem">
-                                <Grid Padding="16,10" ColumnDefinitions="28,*,Auto,Auto" ColumnSpacing="8">
-                                    <Grid.Behaviors>
-                                        <behaviors:PressFeedbackBehavior />
-                                    </Grid.Behaviors>
-                                    <Label Grid.Column="0" Text="{Binding IndexText}" FontSize="13" TextColor="{StaticResource Gray400}"
-                                           VerticalOptions="Center" HorizontalTextAlignment="Center"/>
-                                    <VerticalStackLayout Grid.Column="1" Spacing="1" Margin="10,0,0,0" VerticalOptions="Center">
-                                        <Label Text="{Binding Title}" FontSize="14" TextColor="White" LineBreakMode="TailTruncation"/>
-                                        <Label Text="{Binding Artist}" FontSize="12" TextColor="{StaticResource Gray400}" LineBreakMode="TailTruncation"/>
-                                    </VerticalStackLayout>
-                                    <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
-                                           FontSize="12" TextColor="{StaticResource Gray400}" VerticalOptions="Center"/>
-                                    <Label Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE037;" FontSize="14"
-                                           TextColor="{DynamicResource Primary}" VerticalOptions="Center" IsVisible="{Binding IsCurrent}"/>
-                                </Grid>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
-                    <Label Grid.Row="2" x:Name="QueueCountLabel" FontSize="12" TextColor="{StaticResource Gray400}"
-                           Padding="16,8" BackgroundColor="#252538"/>
                 </Grid>
-            </Frame>
+            </Border>
         </Grid>
     </Grid>
 </ContentPage>

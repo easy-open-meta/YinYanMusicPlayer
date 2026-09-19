@@ -21,6 +21,14 @@
     <Color x:Key="PrimarySoft">#EDE9FB</Color>
     <Color x:Key="NowPlayingAccent">#512BD4</Color>
 
+    <!-- 表面样式族（SurfaceCard / SurfaceField / SurfacePill / SurfaceChip）的底色：
+         刻意做成「比纯白略灰」的浅灰，这样表层的投影才看得出来；深色版本供播放页的
+         深色浮层使用。
+         必须定义在本文件：Styles.xaml 用 StaticResource（解析期求值），而它在 App.xaml 里
+         先于内联字典合并 —— 定义在后面会直接抛 XamlParseException（StaticResource not found）。 -->
+    <Color x:Key="SurfaceLight">#F1F1F1</Color>
+    <Color x:Key="SurfaceDark">#2B2B3D</Color>
+
     <Color x:Key="White">White</Color>
     <Color x:Key="Black">Black</Color>
     <Color x:Key="Magenta">#D600AA</Color>

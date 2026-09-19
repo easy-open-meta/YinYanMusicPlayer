@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dtos="clr-namespace:YinYanMusic.Core.Dtos;assembly=YinYanMusic.Core"
@@ -11,9 +11,9 @@
 
     <Grid RowDefinitions="Auto,*">
 
-        <!-- 资料卡：头像 + 昵称 + @用户名 + 关注按钮 + 三列统计 -->
-        <Frame Grid.Row="0" CornerRadius="0" Padding="16,8,16,18" HasShadow="False"
-               BackgroundColor="{StaticResource CardBackground}">
+        <!-- 资料卡：全宽头部（角半径 0）。左右两边的投影落在屏幕外，只有下缘投影可见，
+             画在下方内容之上形成层次；头像 + 昵称 + @用户名 + 关注按钮 + 三列统计 -->
+        <Border Grid.Row="0" Style="{StaticResource SurfaceCard}" StrokeShape="Rectangle" Padding="16,8,16,18">
             <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
                 <Button Grid.Row="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
                         BackgroundColor="Transparent" TextColor="{DynamicResource Accent}" HorizontalOptions="Start"
@@ -58,7 +58,7 @@
                     </VerticalStackLayout>
                 </Grid>
             </Grid>
-        </Frame>
+        </Border>
 
         <!-- 公开歌单 -->
         <ScrollView Grid.Row="1">

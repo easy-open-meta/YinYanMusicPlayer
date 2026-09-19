@@ -41,6 +41,7 @@ public partial class ZoneViewModel(IMusicApi api) : ObservableObject
     /// <summary>由 ZonePage 的 QueryProperty 回调逐个喂参数；categoryId 到齐后触发加载歌单。</summary>
     public void Apply(string key, string value)
     {
+        System.Diagnostics.Debug.WriteLine($"[Zone] Apply: key={key}, value={value}");
         switch (key)
         {
             case "categoryId": CategoryId = long.TryParse(value, out var id) ? id : 0; break;
@@ -54,13 +55,19 @@ public partial class ZoneViewModel(IMusicApi api) : ObservableObject
 
     private async Task LoadPlaylistsAsync()
     {
+        System.Diagnostics.Debug.WriteLine($"[Zone] LoadPlaylistsAsync: categoryId={CategoryId}");
         if (CategoryId <= 0) return;
         IsBusy = true;
         try
         {
             var result = await api.SearchPlaylistsAsync(categoryId: (int)CategoryId, pageSize: 50);
+            System.Diagnostics.Debug.WriteLine($"[Zone] LoadPlaylistsAsync: got {result.Items.Count} playlists");
             Playlists.Clear();
             foreach (var p in result.Items.Where(p => !p.IsSystem)) Playlists.Add(p);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Zone] LoadPlaylistsAsync failed: {ex.Message}");
         }
         finally
         {

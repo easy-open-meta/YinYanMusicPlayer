@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
+
     <Style TargetType="ActivityIndicator">
         <Setter Property="Color" Value="{DynamicResource Accent}" />
     </Style>
@@ -439,6 +440,99 @@
         <Setter Property="BarTextColor" Value="{AppThemeBinding Light={StaticResource Magenta}, Dark={StaticResource White}}" />
         <Setter Property="UnselectedTabColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray950}}" />
         <Setter Property="SelectedTabColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
+    </Style>
+
+    <!-- ============================================================
+         表面样式族（卡片 / 浮层 / 输入框）—— 投影统一朝右下
+         ============================================================
+         为什么不再用 Sharpnado.MaterialFrame：
+         Acrylic 主题的投影走的是 Android 原生 elevation（View.Elevation），而
+         · elevation 只由「环境光(四周对称) + 点光(向下)」合成，**没有水平偏移能力**；
+         · 库把高度写死成 `public const int AcrylicElevation = 16`（不是 BindableProperty，
+           XAML/样式改不了），16dp 的环境光分量很大 → 观感就是「阴影往左右扩散」。
+         改用 MAUI 原生 Border + Shadow：Shadow.Offset 在 Android 上映射到
+         Paint.SetShadowLayer(radius, dx, dy, color)，dx/dy 才是真正的方向偏移。
+
+         ★ 投影落点（最关键、踩过两次）：
+           setShadowLayer 画在本 View 自己的画布上，会被**父容器的 padding box** 裁掉
+           （Android clipToPadding 默认 true），所以落点空间只能用元素**自己的 Margin**
+           留 —— 给父容器加 Padding 完全无效。
+           每个会被裁的方向都要 ≥ 该方向 offset + radius：
+             右 = 3 + 10 = 13dp      下 = 6 + 10 = 16dp
+             上 / 左 = radius - offset = 7dp（很小，一般不用管）
+           只留一边就会在那个方向留下一条生硬的直边。
+           参考用法：HomeView / ZonesPage 的色卡、ZonesPage 的 CollectionView 模板。
+         ============================================================ -->
+
+    <!-- 基础：只给「朝右下」的投影；底色与圆角由派生样式提供 -->
+    <Style x:Key="ShadowSurface" TargetType="Border">
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="#000000" Offset="3,6" Radius="10" Opacity="0.28" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 分类色卡：底色由数据绑定（CategoryDto.ColorHex / 分区色）提供，样式里不设底色，
+         避免 Style setter 与元素上的绑定值争抢优先级。 -->
+    <Style x:Key="ShadowTile" TargetType="Border" BasedOn="{StaticResource ShadowSurface}">
+        <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+    </Style>
+
+    <!-- 卡片 / 浮层：页面内主要信息块（我的资料卡、歌手资料卡、用户资料卡、主题弹窗）
+         与贴边浮层（底部播放列表抽屉）共用。
+         投影刻意比基类更轻（3,6 / 10 / 0.28 → 2,4 / 8 / 0.16）：信息卡体量大、
+         离内容又近，原来的分量在浅底上糊出一圈明显的灰影，看着"脏"。
+         落点需求跟着从 13dp 降到 10dp，各处原有的 Margin 依然够用。 -->
+    <Style x:Key="SurfaceCard" TargetType="Border" BasedOn="{StaticResource ShadowSurface}">
+        <Setter Property="StrokeShape" Value="RoundRectangle 16" />
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceLight}" />
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="#000000" Offset="2,4" Radius="8" Opacity="0.16" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 输入框 / 选择器容器 -->
+    <Style x:Key="SurfaceField" TargetType="Border" BasedOn="{StaticResource ShadowSurface}">
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceLight}" />
+    </Style>
+
+    <!-- 搜索框：整条圆角胶囊。
+         投影比基类更轻（3,6 / 10 / 0.28 → 2,3 / 7 / 0.14）：扁条形的搜索框投影本来
+         就显眼，原分量在它下面拖出一条明显的灰边。 -->
+    <Style x:Key="SurfacePill" TargetType="Border" BasedOn="{StaticResource ShadowSurface}">
+        <Setter Property="StrokeShape" Value="RoundRectangle 24" />
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceLight}" />
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="#000000" Offset="2,3" Radius="7" Opacity="0.14" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 小标签（搜索记录 chip）：**刻意不做投影**。
+         chip 在 FlexLayout 里换行排布，投影要在右下各留 13 / 16dp 落点，
+         会把标签间距从 8dp 撑到 22dp 以上、排布变稀；而小标签本身是「填充色块」，
+         不是悬浮卡片（Material 的 filled chip 同样不带投影）。 -->
+    <Style x:Key="SurfaceChip" TargetType="Border">
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceLight}" />
+    </Style>
+
+    <!-- 深色浮层（播放页）：深色玻璃质感 + 阴影 -->
+    <Style x:Key="SurfacePanelDark" TargetType="Border" BasedOn="{StaticResource ShadowSurface}">
+        <Setter Property="StrokeShape" Value="RoundRectangle 16" />
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceDark}" />
+    </Style>
+
+    <Style x:Key="SurfacePopupDark" TargetType="Border" BasedOn="{StaticResource ShadowSurface}">
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceDark}" />
     </Style>
 
 </ResourceDictionary>

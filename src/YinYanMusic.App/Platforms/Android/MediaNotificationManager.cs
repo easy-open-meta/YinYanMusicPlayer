@@ -59,6 +59,9 @@ public class MediaNotificationManager : MediaSessionCompat.Callback, IDisposable
         }
 
         _session = new MediaSessionCompat(_context, "YinYanMusicService");
+        // Android 13+（含 HyperOS）系统媒体控件的按钮与进度条事件直接派发给 MediaSession 回调，
+        // 不再走通知 action 的 PendingIntent；不注册回调，上一曲/下一曲/拖动进度条会被系统静默丢弃。
+        _session.SetCallback(this, new Handler(Looper.MainLooper));
         _session.Active = true;
         _initialized = true;
         _disposed = false;
@@ -113,7 +116,7 @@ public class MediaNotificationManager : MediaSessionCompat.Callback, IDisposable
             _largeIcon?.Recycle();
             _largeIcon = BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length);
             SetMetadata();
-            ShowNotification(_lastPositionMs, _lastDurationMs, _lastIsPlaying);
+            ShowNotification();
         }
         catch { }
     }
@@ -135,7 +138,7 @@ public class MediaNotificationManager : MediaSessionCompat.Callback, IDisposable
             .SetState(state, positionMs, isPlaying ? 1.0f : 0.0f);
         _session.SetPlaybackState(builder.Build());
         if (stateChanged)
-            ShowNotification(positionMs, durationMs, isPlaying);
+            ShowNotification();
     }
 
     public void UpdateProgress(bool isPlaying, long positionMs, long durationMs)
@@ -150,22 +153,13 @@ public class MediaNotificationManager : MediaSessionCompat.Callback, IDisposable
         _session.SetPlaybackState(builder.Build());
     }
 
-    private void ShowNotification(long positionMs, long durationMs, bool isPlaying)
+    private void ShowNotification()
     {
         if (_context is null || _notificationManager is null || _session is null) return;
         try
         {
-            var isPlayingState = isPlaying
-                ? PlaybackStateCompat.StatePlaying
-                : PlaybackStateCompat.StatePaused;
-            var state = new PlaybackStateCompat.Builder()
-                .SetActions(PlaybackStateCompat.ActionPlay | PlaybackStateCompat.ActionPause |
-                            PlaybackStateCompat.ActionSkipToNext | PlaybackStateCompat.ActionSkipToPrevious |
-                            PlaybackStateCompat.ActionStop | PlaybackStateCompat.ActionSeekTo)
-                .SetState(isPlayingState, positionMs, isPlaying ? 1.0f : 0.0f)
-                .Build();
-            _session.SetPlaybackState(state);
-
+            // 只重建通知本身。PlaybackState 由 UpdatePlaybackState/UpdateProgress 统一维护，
+            // 这里若再 SetPlaybackState 会用过期参数回写状态，切歌时进度条会闪回上一首的位置。
             var mediaStyle = new AndroidX.Media.App.NotificationCompat.MediaStyle()
                 .SetMediaSession(_session.SessionToken);
 
@@ -175,11 +169,11 @@ public class MediaNotificationManager : MediaSessionCompat.Callback, IDisposable
                 .SetContentText(_artist)
                 .SetContentIntent(BuildLaunchIntent())
                 .SetVisibility(NotificationCompat.VisibilityPublic)
-                .SetOngoing(isPlaying)
+                .SetOngoing(_lastIsPlaying)
                 .SetShowWhen(false)
                 .SetStyle(mediaStyle)
-                .AddAction(BuildAction(PlayAction, "play", "播放", (int)BuildVersionCodes.Lollipop, !isPlaying, 1))
-                .AddAction(BuildAction(PauseAction, "pause", "暂停", (int)BuildVersionCodes.Lollipop, isPlaying, 2))
+                .AddAction(BuildAction(PlayAction, "play", "播放", (int)BuildVersionCodes.Lollipop, !_lastIsPlaying, 1))
+                .AddAction(BuildAction(PauseAction, "pause", "暂停", (int)BuildVersionCodes.Lollipop, _lastIsPlaying, 2))
                 .AddAction(BuildAction(NextAction, "next", "下一首", (int)BuildVersionCodes.Lollipop, true, 3))
                 .AddAction(BuildAction(PreviousAction, "prev", "上一首", (int)BuildVersionCodes.Lollipop, true, 4))
                 .AddAction(BuildAction(StopAction, "stop", "关闭", (int)BuildVersionCodes.Lollipop, true, 5));
@@ -304,9 +298,10 @@ public class MediaNotificationManager : MediaSessionCompat.Callback, IDisposable
     public override void OnSeekTo(long pos)
     {
         Android.Util.Log.Info("YinYan", $"OnSeekTo: pos={pos}");
-        _lastPositionMs = pos;
         SeekAction?.Invoke(pos);
-
+        // 拖动后立刻把新位置回写给系统面板的 PlaybackState，
+        // 否则面板会按旧位置继续外推，进度条看起来像"弹回去"。
+        UpdatePlaybackState(_lastIsPlaying, pos, _lastDurationMs);
     }
     public override void OnStop()
     {

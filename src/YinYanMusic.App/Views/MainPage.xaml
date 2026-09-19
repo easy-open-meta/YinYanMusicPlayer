@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
@@ -32,8 +32,14 @@
                 <Grid.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnMiniPlayerTapped"/>
                 </Grid.GestureRecognizers>
-                <Image Grid.Column="0" x:Name="MiniCover" Aspect="AspectFill" HeightRequest="44" WidthRequest="44"
-                       Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}"/>
+                <!-- 封面：与「热门歌曲」列表里的封面同一套样式——圆角 4 的方图，
+                     不带任何额外外圈（底色是图片加载完之前的占位灰） -->
+                <Border Grid.Column="0" StrokeShape="RoundRectangle 4" StrokeThickness="0"
+                        WidthRequest="44" HeightRequest="44" Padding="0"
+                        BackgroundColor="{StaticResource Gray300}">
+                    <Image Aspect="AspectFill"
+                           Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}"/>
+                </Border>
                 <VerticalStackLayout Grid.Column="2" Spacing="1" VerticalOptions="Center">
                     <Label Text="{Binding CurrentTitle}" FontSize="14" FontAttributes="Bold" LineBreakMode="TailTruncation"/>
                     <Label Text="{Binding CurrentArtist}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
@@ -74,39 +80,67 @@
             <Grid.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnOverlayBackgroundTapped"/>
             </Grid.GestureRecognizers>
-            <Frame CornerRadius="16" Padding="0" HeightRequest="420" BackgroundColor="White"
-                   VerticalOptions="End" Margin="0,0,0,0">
-                <Grid RowDefinitions="Auto,*,Auto">
-                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,14" BackgroundColor="{StaticResource CardBackground}">
-                        <Label Text="播放列表" FontSize="18" FontAttributes="Bold"/>
-                        <Button Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE5CD;" Clicked="OnCloseQueueClicked"
-                                BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="18" Padding="0" WidthRequest="36" HeightRequest="36"/>
+            <!-- 播放列表浮窗：底部贴边面板。全宽 + 贴底 ⇒ 投影落在屏幕外（上下左右都没有
+                 可用落点，单元格也不会裁），所以这块看起来是平的，靠背后的遮罩分层。
+                 描边（#3FFFFFFF）就是亚克力的玻璃高光边。 -->
+            <Border Style="{StaticResource SurfaceCard}" Padding="0" HeightRequest="420"
+                    VerticalOptions="End" Margin="0,0,0,0" BackgroundColor="Transparent"
+                    StrokeThickness="1" Stroke="#3FFFFFFF">
+                <Grid>
+                    <!-- 亚克力底层：与播放页同一个思路——底图由 IAcrylicImageService 生成
+                         （封面缩到 40×40 再箱式模糊），不依赖视图的可见性与解码时机。
+                         老的 RenderEffect 写法在这里会把底图渲染成纯黑。 -->
+                    <Image x:Name="QueueAcrylicCover" Aspect="AspectFill"/>
+                        <!-- 浅色亚克力：高明度的白遮罩带 alpha（不是不透明），
+                             让磨砂层透出封面的色彩与明暗。原来是 #CC（80% 白），
+                             底图整个被盖成一片白，看不出磨砂；收到 0.52~0.72 之后
+                             封面的色调能透出来，深色文字依然清晰。 -->
+                        <BoxView>
+                            <BoxView.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#85FFFFFF" Offset="0" />
+                                    <GradientStop Color="#A6FFFFFF" Offset="0.5" />
+                                    <GradientStop Color="#B8FFFFFF" Offset="1" />
+                                </LinearGradientBrush>
+                            </BoxView.Background>
+                        </BoxView>
+
+                        <Grid RowDefinitions="Auto,*,Auto">
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,14">
+                            <Label Text="播放列表" FontSize="18" FontAttributes="Bold"/>
+                            <Button Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE5CD;" Clicked="OnCloseQueueClicked"
+                                    BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="18" Padding="0" WidthRequest="36" HeightRequest="36"/>
+                        </Grid>
+                        <!-- SelectionMode=None + 显式 Tap：原因见 NowPlayingPage 同名列表注释 -->
+                        <CollectionView Grid.Row="1" x:Name="QueueList" SelectionMode="None" Margin="0,4">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="views:QueueItem">
+                                    <Grid Padding="16,10" ColumnDefinitions="28,*,Auto,Auto" ColumnSpacing="8">
+                                        <Grid.Behaviors>
+                                            <behaviors:PressFeedbackBehavior />
+                                        </Grid.Behaviors>
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnQueueItemTapped"/>
+                                        </Grid.GestureRecognizers>
+                                        <Label Grid.Column="0" Text="{Binding IndexText}" FontSize="13" TextColor="{StaticResource Gray500}"
+                                               VerticalOptions="Center" HorizontalTextAlignment="Center"/>
+                <VerticalStackLayout Grid.Column="1" Spacing="1" Margin="10,0,0,0" VerticalOptions="Center">
+                                            <Label Text="{Binding Title}" FontSize="14" LineBreakMode="TailTruncation"/>
+                                            <Label Text="{Binding Artist}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
+                                               FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                                        <Label Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE037;" FontSize="14"
+                                               TextColor="{DynamicResource Accent}" VerticalOptions="Center" IsVisible="{Binding IsCurrent}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <Label Grid.Row="2" x:Name="QueueCountLabel" FontSize="12" TextColor="{StaticResource Gray500}"
+                               Padding="16,8"/>
                     </Grid>
-                    <CollectionView Grid.Row="1" x:Name="QueueList" SelectionMode="Single" SelectionChanged="OnQueueSelectionChanged" Margin="0,4">
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="views:QueueItem">
-                                <Grid Padding="16,10" ColumnDefinitions="28,*,Auto,Auto" ColumnSpacing="8">
-                                    <Grid.Behaviors>
-                                        <behaviors:PressFeedbackBehavior />
-                                    </Grid.Behaviors>
-                                    <Label Grid.Column="0" Text="{Binding IndexText}" FontSize="13" TextColor="{StaticResource Gray500}"
-                                           VerticalOptions="Center" HorizontalTextAlignment="Center"/>
-            <VerticalStackLayout Grid.Column="1" Spacing="1" Margin="10,0,0,0" VerticalOptions="Center">
-                                        <Label Text="{Binding Title}" FontSize="14" LineBreakMode="TailTruncation"/>
-                                        <Label Text="{Binding Artist}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
-                                    </VerticalStackLayout>
-                                    <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
-                                           FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
-                                    <Label Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE037;" FontSize="14"
-                                           TextColor="{DynamicResource Accent}" VerticalOptions="Center" IsVisible="{Binding IsCurrent}"/>
-                                </Grid>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
-                    <Label Grid.Row="2" x:Name="QueueCountLabel" FontSize="12" TextColor="{StaticResource Gray500}"
-                           Padding="16,8" BackgroundColor="{StaticResource CardBackground}"/>
                 </Grid>
-            </Frame>
+            </Border>
         </Grid>
 
         <!-- 左上角“更多/设置”按钮（三条横线图标） -->
@@ -165,21 +199,8 @@
             </VerticalStackLayout>
         </Grid>
 
-        <!-- 主题颜色选择浮窗 -->
-        <Grid x:Name="ThemePickerOverlay" Grid.RowSpan="3" IsVisible="False" ZIndex="200">
-            <BoxView x:Name="ThemePickerBackdrop" BackgroundColor="#80000000" InputTransparent="False">
-                <BoxView.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnThemePickerBackdropTapped"/>
-                </BoxView.GestureRecognizers>
-            </BoxView>
-            <VerticalStackLayout x:Name="ThemePickerCard" VerticalOptions="Center" HorizontalOptions="Center"
-                                 WidthRequest="320" BackgroundColor="{DynamicResource CardBackground}"
-                                 Padding="24" Spacing="18" >
-                <Label Text="选择主题颜色" FontSize="18" FontAttributes="Bold"/>
-                <Grid x:Name="ThemeSwatches" ColumnDefinitions="*,*,*,*,*" RowSpacing="18" ColumnSpacing="12"/>
-                <Button Text="取消" Clicked="OnThemePickerCancel" BackgroundColor="Transparent"
-                        TextColor="{DynamicResource Gray500}" Padding="0"/>
-            </VerticalStackLayout>
-        </Grid>
+        <!-- 主题颜色选择浮窗已移除：改走 SongMenuHelper.ShowThemePickerAsync()，
+             与「新建歌单」等对话框共用同一套居中圆角卡片（Border 圆角 20 + 投影 + 取消/确定）。
+             连带收益：遮罩/入场动效/点遮罩关闭都统一由 PresentDialogAsync 负责，页面里不再有第二套实现。 -->
     </Grid>
 </ContentPage>

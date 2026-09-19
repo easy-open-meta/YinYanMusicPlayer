@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dtos="clr-namespace:YinYanMusic.Core.Dtos;assembly=YinYanMusic.Core"
@@ -8,12 +8,15 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource PageBackground}">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,12" RowSpacing="14">
+    <!-- 左右 padding 由 16 收到 3：本页三块内容（资料卡 / 播放全部按钮 / 歌曲列表）都要用
+         13dp 的 Margin 给投影留落点，padding 相抵后它们的位置与改动前完全一致。 -->
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="3,12" RowSpacing="14">
 
         <Button Grid.Row="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}" BackgroundColor="Transparent"
-                TextColor="{DynamicResource Accent}" HorizontalOptions="Start" Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+                TextColor="{DynamicResource Accent}" HorizontalOptions="Start" Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"
+                Margin="13,0,0,0"/>
 
-        <Frame Grid.Row="1" CornerRadius="16" Padding="16" HasShadow="False" BackgroundColor="{StaticResource CardBackground}">
+        <Border Grid.Row="1" Style="{StaticResource SurfaceCard}" Padding="16" Margin="13,0,13,0">
             <VerticalStackLayout Spacing="14">
                 <HorizontalStackLayout Spacing="14" VerticalOptions="Center">
                     <!-- 头像：取自该歌手任意歌曲的封面；无封面时回退到占位图标 -->
@@ -49,13 +52,13 @@
                     </VerticalStackLayout>
                 </Grid>
             </VerticalStackLayout>
-        </Frame>
+        </Border>
 
         <Button Grid.Row="2" Text="&#xE037;  播放全部" Command="{Binding PlayAllCommand}" CornerRadius="20"
                 BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}" HeightRequest="40" HorizontalOptions="Fill" FontSize="16"
-                FontFamily="MaterialIcons"/>
+                FontFamily="MaterialIcons" Margin="13,0,13,0"/>
 
-        <CollectionView Grid.Row="3" ItemsSource="{Binding Songs}" SelectionMode="None">
+        <CollectionView Grid.Row="3" ItemsSource="{Binding Songs}" SelectionMode="None" Margin="13,0,13,0">
             <CollectionView.EmptyView>
                 <Label Text="暂无歌曲" TextColor="{StaticResource Gray500}" HorizontalOptions="Center" Padding="0,40"/>
             </CollectionView.EmptyView>

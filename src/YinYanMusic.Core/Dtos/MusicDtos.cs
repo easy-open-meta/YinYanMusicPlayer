@@ -72,11 +72,21 @@ public record PlaylistDetailDto(
     string OwnerName,
     bool IsOwner,
     bool IsCollected,
-    IReadOnlyList<SongDto> Songs);
+    IReadOnlyList<SongDto> Songs,
+    // 编辑歌单（改名 / 选标签）需要的字段：
+    int? CategoryId = null,
+    string? CategoryName = null,
+    /// <summary>系统歌单（如“我喜欢的音乐”）：不可改名 / 改标签 / 删除，前端据此隐藏按钮。</summary>
+    bool IsSystem = false);
 
 public record CreatePlaylistRequest(string Name, string? Description, int? CategoryId);
 
-public record UpdatePlaylistRequest(string? Name, string? Description, string? CoverUrl, int? CategoryId);
+/// <summary>
+/// 编辑歌单。<paramref name="CategoryId"/> 为 null 时表示"不改标签"；
+/// 想把标签清空则置 <paramref name="ClearCategory"/> = true
+/// （只靠 CategoryId=null 无法区分"没传"和"要清空"，所以单独给一个开关）。
+/// </summary>
+public record UpdatePlaylistRequest(string? Name, string? Description, string? CoverUrl, int? CategoryId, bool ClearCategory = false);
 
 public record AddSongsToPlaylistRequest(IReadOnlyList<long> SongIds);
 

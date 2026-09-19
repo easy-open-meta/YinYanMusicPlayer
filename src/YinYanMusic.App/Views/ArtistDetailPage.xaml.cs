@@ -32,6 +32,7 @@ public partial class ArtistDetailPage : ContentPage
 	private async void OnMoreClicked(object? sender, EventArgs e)
 	{
 		if (sender is not Button btn || btn.CommandParameter is not SongDto song) return;
-		await SongMenuHelper.ShowMenuAsync(song, _api, _player);
+		// 带上歌手页的歌曲列表，保证「列表循环」能走到下一首
+		await SongMenuHelper.ShowMenuAsync(song, _api, _player, _vm.Songs, _vm.ArtistName);
 	}
 }

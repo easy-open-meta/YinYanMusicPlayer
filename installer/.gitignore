@@ -1,0 +1,3 @@
+# Windows 客户端打包产物（build-client-installer.ps1 的中间产物 + 最终 setup.exe）
+# 里面是几百 MB 的发布输出，绝不入库。
+build/

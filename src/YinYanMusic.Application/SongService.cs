@@ -23,8 +23,12 @@ public class SongService(MusicDbContext db, AudioMetadataService metadata) : ISo
     {
         var q = db.Songs.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(keyword))
-            q = q.Where(s => s.Title.Contains(keyword) || s.Artist.Name.Contains(keyword)
-                || (s.Album != null && s.Album.Name.Contains(keyword)));
+        {
+            // ILIKE：大小写不敏感（搜 "ado" 命中 "Ado"）；pattern 已转义 %、_、\
+            var pattern = LikePattern.Contains(keyword);
+            q = q.Where(s => EF.Functions.ILike(s.Title, pattern) || EF.Functions.ILike(s.Artist.Name, pattern)
+                || (s.Album != null && EF.Functions.ILike(s.Album.Name, pattern)));
+        }
         if (artistId.HasValue) q = q.Where(s => s.ArtistId == artistId);
         if (albumId.HasValue) q = q.Where(s => s.AlbumId == albumId);
         if (categoryId.HasValue) q = q.Where(s => s.CategoryId == categoryId);

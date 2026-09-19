@@ -10,6 +10,44 @@ using YinYanMusic.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ============================================================================
+// Windows 安装形态（Inno Setup 装的机子走这里）：
+//   - 服务模式：由 SCM 以 Windows 服务启动。UseWindowsService 会顺带把 ContentRoot
+//     设为 exe 所在目录；只在 Windows 上调，Linux/Docker 上是彻底的 no-op。
+//   - 配置覆盖层：%ProgramData%\YinYanMusic\appsettings.json（安装向导按用户填写生成，
+//     与程序目录分离，升级覆盖程序目录时不会丢配置）。
+//   - 监听端口优先级见下方 ConfigureKestrel。
+// ============================================================================
+if (OperatingSystem.IsWindows())
+{
+    builder.Host.UseWindowsService();
+
+    var sharedConfigPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+        "YinYanMusic", "appsettings.json");
+    if (File.Exists(sharedConfigPath))
+        builder.Configuration.AddJsonFile(sharedConfigPath, optional: true, reloadOnChange: true);
+}
+
+// ============================================================================
+// 监听地址：默认 HTTP 0.0.0.0:5116（必须 0.0.0.0，真机/容器才能从外部连进来）。
+//   端口优先级：环境变量 YINYAN_HTTP_PORT > 配置 Api:HttpPort > 5116
+//     （Docker 用环境变量；Windows 安装包把端口写进 appsettings.json 的 Api:HttpPort）
+//   HTTPS 不在进程内自建（2026-09-17 定案）：生产由 Nginx 反代终结 TLS，
+//   Windows 形态则由安装包同源托管前端，局域网内走明文 http。
+//   注意：一旦调用 ConfigureKestrel 注册端点，ASPNETCORE_URLS 就会被忽略，
+//   所以老启动脚本不设 ASPNETCORE_URLS 也能拿到 5116。
+// ============================================================================
+builder.WebHost.ConfigureKestrel(opts =>
+{
+    var httpPort = int.TryParse(Environment.GetEnvironmentVariable("YINYAN_HTTP_PORT"), out var envPort) && envPort > 0
+        ? envPort
+        : int.TryParse(builder.Configuration["Api:HttpPort"], out var cfgPort) && cfgPort > 0
+            ? cfgPort
+            : 5116;
+    opts.ListenAnyIP(httpPort);
+});
+
 builder.Services.AddControllers();
 builder.Services.AddOpenApi(options => options.AddDocumentTransformer((doc, ctx, ct) =>
 {
@@ -90,6 +128,12 @@ using (var scope = app.Services.CreateScope())
         "ALTER TABLE \"Playlists\" ADD COLUMN IF NOT EXISTS \"IsSystem\" boolean NOT NULL DEFAULT false");
     await db.Database.ExecuteSqlRawAsync(
         "UPDATE \"Playlists\" SET \"IsSystem\" = true WHERE \"Name\" = '我喜欢的音乐' AND \"IsSystem\" = false");
+
+    // 用户角色：后台管理接口（api/admin/*、api/catalog 的写操作）靠 `[Authorize(Roles="admin")]` 鉴权，
+    // 而 token 里的 role 声明来自这一列。老库幂等补列，默认 'user'；
+    // 提管理员：UPDATE "Users" SET "Role"='admin' WHERE "UserName"='xxx';（改完必须重新登录换 token）
+    await db.Database.ExecuteSqlRawAsync(
+        "ALTER TABLE \"Users\" ADD COLUMN IF NOT EXISTS \"Role\" text NOT NULL DEFAULT 'user'");
 
     // 分区（音乐专区）：Categories 补 3 个展示字段（宣传语/卡片底色/图标字符），老库幂等补列。
     // IconGlyph 存 MaterialIcons 的实际 Unicode 字符（chr(码点十进制)），客户端 Text 可直接绑定。

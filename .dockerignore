@@ -1,0 +1,45 @@
+# ============================================================================
+# Docker build context 过滤
+#
+# 关键：必须排除本机的 bin/ 与 obj/。
+#   Dockerfile 里的 `COPY src/ ./src/` 会把宿主机（Windows）的
+#   obj/project.assets.json 覆盖掉容器内 `dotnet restore` 的产物，
+#   导致 publish --no-restore 报 NETSDK1047（没有 net10.0/linux-x64 目标）。
+# ============================================================================
+
+# 构建产物（务必排除 obj/，见上方说明）
+**/bin/
+**/obj/
+
+# 证书类文件一律不进镜像（本机自签名证书、.pem 等）。
+# 项目已于 2026-09-17 移除自签名 HTTPS（生产由 Nginx 反代终结 TLS），
+# 这行是防御性的：避免以后有人把私钥/证书误打进构建上下文。
+**/*.pfx
+**/*.pem
+
+# 版本控制 / CI / 本地工具目录
+.git/
+.gitignore
+.github/
+.gitea/
+.vs/
+.codeartsdoer/
+.codegraph/
+.workbuddy/
+
+# 前端依赖与产物（Dockerfile 只 COPY src/，这里仅用于缩小上下文）
+**/node_modules/
+web/admin/dist/
+
+# 文档 / 脚本 / 临时日志
+docs/
+scripts/
+*.log
+*.ps1
+*.bat
+*.user
+
+# 其他
+BLL/
+DAL/
+Model/

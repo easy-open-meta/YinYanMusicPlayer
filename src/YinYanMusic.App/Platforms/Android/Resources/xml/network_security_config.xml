@@ -1,10 +1,34 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Android 明文访问控制（M0.5 起）：
+    - 默认 API 地址是 HTTPS 域名（见 ApiConfig.DefaultBaseUrl），**不走明文**，无需在此放行。
+    - Release 严格：仅下列域名放行 http（手动切回局域网后端时用），其它服务器一律走 https。
+    - Debug 开放：用户在设置页改了服务器地址后能连任何内网 IP。
+  ⚠️ 切到真正的生产环境时：
+    - 把下面 <domain-config> 换成生产域名并改用 https
+    - 或者移除 <domain-config>，强制全 https
+-->
 <network-security-config>
-	<base-config cleartextTrafficPermitted="false" />
+	<base-config cleartextTrafficPermitted="false">
+		<trust-anchors>
+			<certificates src="system" />
+		</trust-anchors>
+	</base-config>
+
+	<!-- 开发/调试 LAN 后端（明文 HTTP）。
+	     ⚠️ 这里曾通过 <certificates src="@raw/yinyan_local" /> 信任自签名开发证书，
+	     已于 2026-09-17 移除：API 不再自建 HTTPS（生产由 Nginx 反代终结 TLS），
+	     且该 raw 证书被 .gitignore 排除、不入库 —— 留着会让干净检出/CI 的 APK 构建
+	     因找不到 @raw/yinyan_local 资源而失败。 -->
 	<domain-config cleartextTrafficPermitted="true">
 		<domain includeSubdomains="false">10.26.218.85</domain>
-		<domain includeSubdomains="false">10.0.2.2</domain>
-		<domain includeSubdomains="false">127.0.0.1</domain>
-		<domain includeSubdomains="false">localhost</domain>
+		<trust-anchors>
+			<certificates src="system" />
+		</trust-anchors>
 	</domain-config>
+
+	<!-- Debug 包放开：http 全开 —— 用户在设置页改了服务器地址能立刻连通任意内网。 -->
+	<debug-overrides>
+		<base-config cleartextTrafficPermitted="true" />
+	</debug-overrides>
 </network-security-config>

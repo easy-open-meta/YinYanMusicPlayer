@@ -8,11 +8,17 @@ namespace YinYanMusic.App.Views;
 public partial class NowPlayingPage : ContentPage
 {
 	private readonly NowPlayingViewModel _vm;
+	private readonly IBlurService _blur = ServiceHelper.GetRequiredService<IBlurService>();
+	private readonly IAcrylicImageService _acrylic = ServiceHelper.GetRequiredService<IAcrylicImageService>();
 	private bool _isRotating;
 	private bool _longPressActive;
 	private IDispatcherTimer? _rotateTimer;
 	private bool _coverLongPressSet;
 	private bool _titleLongPressSet;
+
+	// 亚克力：整页背景的封面模糊半径（dp，会按屏幕密度换算成像素）与主色叠加的不透明度
+	private const float BackdropBlurRadius = 24f;
+	private const double AccentLayerOpacity = 0.42;
 
 	public NowPlayingPage() : this(ServiceHelper.GetRequiredService<NowPlayingViewModel>())
 	{
@@ -23,6 +29,11 @@ public partial class NowPlayingPage : ContentPage
 		InitializeComponent();
 		_vm = vm;
 		BindingContext = vm;
+
+		// 原生模糊只能作用在已创建的原生视图上，Handler 就绪后再挂；换 Handler 会再次触发
+		BackdropCover.HandlerChanged += (_, _) => ApplyBackdropBlur();
+		ApplyBackdropBlur();
+		_vm.PropertyChanged += OnViewModelPropertyChanged;
 
 		ProgressSlider.Maximum = _vm.Player.DurationSeconds > 0 ? _vm.Player.DurationSeconds : 1;
 		ProgressSlider.Value = _vm.Player.PositionSeconds;
@@ -61,6 +72,15 @@ public partial class NowPlayingPage : ContentPage
 		_vm.Player.PropertyChanged += OnPlayerPropertyChanged;
 		_ = _vm.RefreshIsLikedAsync();
 		_ = _vm.RefreshArtistFollowedAsync();
+		_ = _vm.RefreshAccentAsync();
+#if WINDOWS
+		// Windows：本页的原生长按订阅在离开后依然有效，而计时器已被 OnNavigatedFrom 置空，
+		// 回到本页必须重新装回，否则长按封面会抛 NullReferenceException。
+		// 同时清掉可能残留的按下态，避免唱片旋转被 _longPressActive 永久卡住。
+		_isPointerPressed = false;
+		_longPressActive = false;
+		SetupLongPress();
+#endif
 		_isRotating = false;
 		UpdateRotation();
 		RestartMarquee();
@@ -91,7 +111,50 @@ public partial class NowPlayingPage : ContentPage
 
 		SetupLongPress();
 		SetupTitleLongPress();
+		ApplyBackdropBlur();
 	}
+
+	// ===== 动态亚克力背景 ==================================================
+
+	/// <summary>
+	/// 给整页铺底封面加平台原生模糊。
+	/// 平台不支持时什么都不做，退化成未模糊的封面底图（仍有主色与深色渐变保证可读）。
+	/// 播放列表浮窗的底图不走这里——它由 <see cref="IAcrylicImageService"/> 在像素层做好。
+	/// </summary>
+	private void ApplyBackdropBlur()
+	{
+		if (BackdropCover.Handler is not null)
+			_blur.Apply(BackdropCover, BackdropBlurRadius);
+	}
+
+	private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName != nameof(NowPlayingViewModel.AccentColor)) return;
+		MainThread.BeginInvokeOnMainThread(() => AnimateAccent(_vm.AccentColor));
+	}
+
+	/// <summary>主色切换走 320ms 过渡，避免切歌时背景颜色硬跳。</summary>
+	private void AnimateAccent(Color? target)
+	{
+		var from = BackdropAccent.Color ?? Colors.Transparent;
+		var to = target ?? Colors.Transparent;
+		var fromOpacity = BackdropAccent.Opacity;
+		// 取不到主色时整层淡出，只留原来的深色渐变，观感和改造前一致
+		var toOpacity = target is null ? 0.0 : AccentLayerOpacity;
+
+		var anim = new Animation(t =>
+		{
+			BackdropAccent.Color = Blend(from, to, (float)t);
+			BackdropAccent.Opacity = fromOpacity + (toOpacity - fromOpacity) * (float)t;
+		}, 0, 1, Easing.CubicInOut);
+		anim.Commit(this, nameof(AnimateAccent), length: 320);
+	}
+
+	private static Color Blend(Color a, Color b, float t) => Color.FromRgba(
+		a.Red + (b.Red - a.Red) * t,
+		a.Green + (b.Green - a.Green) * t,
+		a.Blue + (b.Blue - a.Blue) * t,
+		a.Alpha + (b.Alpha - a.Alpha) * t);
 
 	private IDispatcherTimer? _marqueeTimer;
 	private double _marqueeUnit;           // 一个滚动周期宽度 = 歌名宽 + 间隔
@@ -225,13 +288,17 @@ public partial class NowPlayingPage : ContentPage
 	{
 		try
 		{
-			var title = _vm.Player.CurrentTitle;
+			// 取 Current?.Title 而不是 CurrentTitle：后者在没歌时是"未在播放"的占位文案，
+			// 不该被复制出去（也顺带让"没歌时不显示复制选项"这条判断真的生效）。
+			var title = _vm.Player.Current?.Title ?? string.Empty;
 			var artist = _vm.Player.CurrentArtist;
-			if (string.IsNullOrEmpty(title) && string.IsNullOrEmpty(artist)) return;
+			var album = _vm.Player.CurrentAlbum;
+			if (string.IsNullOrEmpty(title) && string.IsNullOrEmpty(artist) && string.IsNullOrEmpty(album)) return;
 
 			var options = new List<string>();
 			if (!string.IsNullOrEmpty(title)) options.Add("复制歌曲名");
 			if (!string.IsNullOrEmpty(artist)) options.Add("复制歌手名");
+			if (!string.IsNullOrEmpty(album)) options.Add("复制专辑名");
 			if (options.Count == 0) return;
 
 			var picked = await SongMenuHelper.ShowBottomSheetAsync("选择复制", options);
@@ -239,6 +306,7 @@ public partial class NowPlayingPage : ContentPage
 			{
 				"复制歌曲名" => title,
 				"复制歌手名" => artist,
+				"复制专辑名" => album,
 				_ => null
 			};
 			if (string.IsNullOrEmpty(text)) return;
@@ -250,6 +318,9 @@ public partial class NowPlayingPage : ContentPage
 #else
 			await Clipboard.Default.SetTextAsync(text);
 #endif
+
+			// 复制成功的反馈：两端都用同一套页内轻提示（Windows 没有原生 Toast 对等物）
+			await SongMenuHelper.ShowToastAsync($"复制「{text}」成功", this);
 		}
 		catch (Exception ex)
 		{
@@ -260,12 +331,13 @@ public partial class NowPlayingPage : ContentPage
 	private void OnPlayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
 		if (e.PropertyName == nameof(PlayerService.PositionSeconds))
-			MainThread.BeginInvokeOnMainThread(() => ProgressSlider.Value = _vm.Player.PositionSeconds);
+			MainThread.BeginInvokeOnMainThread(() => ProgressSlider.Value = Math.Min(_vm.Player.PositionSeconds, _vm.Player.DurationSeconds));
 		else if (e.PropertyName == nameof(PlayerService.DurationSeconds))
 			MainThread.BeginInvokeOnMainThread(() => ProgressSlider.Maximum = _vm.Player.DurationSeconds);
 		else if (e.PropertyName == nameof(PlayerService.Current))
 		{
 			_ = _vm.RefreshIsLikedAsync();
+			_ = _vm.RefreshAccentAsync();                         // 切歌后按新封面重算背景主色
 			MainThread.BeginInvokeOnMainThread(RestartMarquee);   // 切歌后按新歌名重新评估跑马灯
 		}
 		else if (e.PropertyName == nameof(PlayerService.IsPlaying))
@@ -322,34 +394,7 @@ public partial class NowPlayingPage : ContentPage
 	{
 		VolumePopup.IsVisible = !VolumePopup.IsVisible;
 		VolumePopupOverlay.IsVisible = VolumePopup.IsVisible;
-#if WINDOWS
-		if (VolumePopup.IsVisible) ApplyAcrylicBackground();
-#endif
 	}
-
-#if WINDOWS
-	private void ApplyAcrylicBackground()
-	{
-		var acrylic = new Microsoft.UI.Xaml.Media.AcrylicBrush
-		{
-			TintColor = new Windows.UI.Color { A = 255, R = 26, G = 26, B = 46 },
-			TintOpacity = 0.55,
-			TintLuminosityOpacity = 0.8,
-			FallbackColor = new Windows.UI.Color { A = 230, R = 26, G = 26, B = 46 }
-		};
-
-		switch (VolumePopup.Handler?.PlatformView)
-		{
-			case Microsoft.UI.Xaml.Controls.Border border:
-				border.Background = acrylic;
-				break;
-			case Microsoft.UI.Xaml.Controls.Panel panel:
-				panel.Background = acrylic;
-				break;
-		}
-	}
-#endif
-
 
 	private void OnVolumePopupOverlayTapped(object? sender, TappedEventArgs e)
 	{
@@ -367,39 +412,77 @@ public partial class NowPlayingPage : ContentPage
 
 	private IDispatcherTimer? _longPressTimer;
 	private bool _isPointerPressed;
+#if WINDOWS
+	// 已挂上原生 PointerPressed/PointerReleased 的那个平台元素（同一个只挂一次，元素重建后重新挂）
+	private Microsoft.UI.Xaml.UIElement? _coverLongPressElement;
+#endif
+
+#if WINDOWS
+	/// <summary>
+	/// 保证长按计时器存在（Windows）。
+	/// <para>
+	/// <c>OnNavigatedFrom</c> 会把 <c>_longPressTimer</c> 置空来停用长按，但挂在原生元素上的
+	/// PointerPressed 订阅并不会随之解除，而 <c>OnNavigatedTo</c> 也不会重建计时器。
+	/// 于是「离开播放页 → 返回 → 长按封面」时，原生事件回调里的 <c>_longPressTimer</c> 仍是 null，
+	/// <c>Start()</c> 直接抛 NullReferenceException。因此回到页面时必须重新装回计时器。
+	/// </para>
+	/// </summary>
+	private void EnsureLongPressTimer()
+	{
+		if (_longPressTimer is not null) return;
+
+		var timer = Dispatcher.CreateTimer();
+		timer.Interval = TimeSpan.FromMilliseconds(300);
+		// 捕获 timer 本身而不是每次都读字段：字段随时可能被 OnNavigatedFrom 置空
+		timer.Tick += (_, _) =>
+		{
+			timer.Stop();
+			_longPressActive = false;
+			// 页面已离开就不要再弹封面预览
+			if (_isPointerPressed && _longPressTimer is not null)
+				MainThread.BeginInvokeOnMainThread(ShowCoverPreview);
+		};
+		_longPressTimer = timer;
+	}
+#endif
 
 	private void SetupLongPress()
 	{
 
 #if WINDOWS
-		if (VinylDisc.Handler?.PlatformView is Microsoft.UI.Xaml.UIElement platformElement)
-		{
-			_longPressTimer = Dispatcher.CreateTimer();
-			_longPressTimer.Interval = TimeSpan.FromMilliseconds(300);
-			_longPressTimer.Tick += (_, _) =>
-			{
-				_longPressTimer.Stop();
-				_longPressActive = false;
-				if (_isPointerPressed)
-					MainThread.BeginInvokeOnMainThread(ShowCoverPreview);
-			};
+		// 计时器可能已被 OnNavigatedFrom 置空，先补上再挂/复用订阅
+		EnsureLongPressTimer();
 
-			platformElement.PointerPressed += (_, _) =>
-			{
-				_isPointerPressed = true;
-				_longPressActive = true;
-				_isRotating = false;
-				_rotateTimer?.Stop();
-				_longPressTimer.Start();
-			};
-			platformElement.PointerReleased += (_, _) =>
-			{
-				_isPointerPressed = false;
-				_longPressTimer.Stop();
-				_longPressActive = false;
-				UpdateRotation();
-			};
-		}
+		if (VinylDisc.Handler?.PlatformView is not Microsoft.UI.Xaml.UIElement platformElement)
+			return;
+
+		// 同一元素重复调用时不要重复订阅；换了平台元素（Handler 重建）则重新订阅
+		if (ReferenceEquals(_coverLongPressElement, platformElement)) return;
+		_coverLongPressElement = platformElement;
+
+		platformElement.PointerPressed += (_, _) =>
+		{
+			// 先取局部变量再判空，绝不直接碰字段：
+			// 原生事件订阅在页面离开后依然有效，计时器为 null 即代表本次按下应整体作废。
+			var timer = _longPressTimer;
+			if (timer is null) return;
+
+			_isPointerPressed = true;
+			_longPressActive = true;
+			_isRotating = false;
+			_rotateTimer?.Stop();
+			timer.Start();
+		};
+		platformElement.PointerReleased += (_, _) =>
+		{
+			_isPointerPressed = false;
+			var timer = _longPressTimer;
+			timer?.Stop();
+			_longPressActive = false;
+			// 页面已离开：不要再恢复唱片旋转
+			if (timer is null) return;
+			UpdateRotation();
+		};
 #elif ANDROID
 		if (_coverLongPressSet) return;
 		if (CoverImage.Handler?.PlatformView is Android.Views.View coverView)
@@ -465,9 +548,10 @@ public partial class NowPlayingPage : ContentPage
 		}
 	}
 
-	private void OnQueueClicked(object? sender, EventArgs e)
+	private async void OnQueueClicked(object? sender, EventArgs e)
 	{
 		var queue = _vm.Player.Queue;
+		System.Diagnostics.Debug.WriteLine($"[Queue] OnQueueClicked: queueCount={queue.Count}, currentIndex={_vm.Player.CurrentIndex}");
 		var items = new List<QueueItem>();
 		for (var i = 0; i < queue.Count; i++)
 		{
@@ -483,19 +567,31 @@ public partial class NowPlayingPage : ContentPage
 		QueueList.ItemsSource = items;
 		QueueCountLabel.Text = $"共 {items.Count} 首";
 		QueueOverlay.IsVisible = true;
+		// 底图随后补上：先让浮窗立刻出来（色调层本身已保证可读），
+		// 磨砂底图生成好再换上，避免首次下载封面时点击要干等。
+		await RefreshQueueAcrylicAsync();
+	}
+
+	/// <summary>给播放列表浮窗的亚克力底层换上当前封面的磨砂底图。</summary>
+	private async Task RefreshQueueAcrylicAsync()
+	{
+		var src = await _acrylic.CreateAsync(_vm.Player.CoverUrl);
+		if (src is not null) QueueAcrylicCover.Source = src;
 	}
 
 	private void OnCloseQueueClicked(object? sender, EventArgs e) => QueueOverlay.IsVisible = false;
 
 	private void OnQueueOverlayBackgroundTapped(object? sender, TappedEventArgs e) => QueueOverlay.IsVisible = false;
 
-	private void OnQueueSelectionChanged(object? sender, SelectionChangedEventArgs e)
+	// 显式 Tap 事件（TappedEventArgs 无绑定参数，从 sender 拿 BindingContext）：
+	// SelectionChanged 在 Android 上被行内 PointerGestureRecognizer 吞掉，收不到。
+	private void OnQueueItemTapped(object? sender, TappedEventArgs e)
 	{
-		if (e.CurrentSelection.FirstOrDefault() is QueueItem item)
+		if ((sender as BindableObject)?.BindingContext is QueueItem item)
 		{
+			System.Diagnostics.Debug.WriteLine($"[Queue] tap item index={item.Index}, title={item.Title}");
 			_vm.Player.PlayAt(item.Index);
 			QueueOverlay.IsVisible = false;
-			QueueList.SelectedItem = null;
 		}
 	}
 
@@ -521,6 +617,7 @@ public partial class NowPlayingPage : ContentPage
 
 		_vm.Player.VinylRotation = VinylDisc.Rotation % 360;
 		_vm.Player.PropertyChanged -= OnPlayerPropertyChanged;
+		_vm.PropertyChanged -= OnViewModelPropertyChanged;
 		Loaded -= OnPageLoaded;
 
 		base.OnNavigatedFrom(args);

@@ -20,42 +20,45 @@
                    HorizontalOptions="Center" VerticalOptions="Center"/>
         </Grid>
 
-        <!-- 双列分区网格（对齐网易云「音乐专区」页）：卡片完全由 Categories 数据驱动 -->
-        <ScrollView Grid.Row="1">
-            <CollectionView ItemsSource="{Binding Zones}" SelectionMode="None" Margin="0,0,0,12">
-                <CollectionView.ItemsLayout>
-                    <GridItemsLayout Orientation="Vertical" Span="2"
-                                     HorizontalItemSpacing="12" VerticalItemSpacing="12"/>
-                </CollectionView.ItemsLayout>
-                <CollectionView.EmptyView>
-                    <Label Text="暂无专区" TextColor="{StaticResource Gray500}" HorizontalOptions="Center" Padding="0,60"/>
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="dtos:CategoryDto">
-                        <Frame HeightRequest="96" CornerRadius="14" Padding="14"
-                               BackgroundColor="{Binding ColorHex}" HasShadow="False">
+        <!-- 双列分区网格（对齐网易云「音乐专区」页）：卡片完全由 Categories 数据驱动。
+             CollectionView 自身可滚动，不再外包 ScrollView（空列表 + EmptyView 在 ScrollView
+             内会在 Android 上陷入循环测量） -->
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Zones}" SelectionMode="None" Margin="0,0,0,12">
+            <CollectionView.ItemsLayout>
+                <!-- 右边距加到 14dp 后，两列的视觉间距会变成 14+间距+6；间距收到 4 维持原来的 24dp。
+                     VerticalItemSpacing 同理（上 4 + 间距 + 下 16 = 24dp）。 -->
+                <GridItemsLayout Orientation="Vertical" Span="2"
+                                 HorizontalItemSpacing="4" VerticalItemSpacing="4"/>
+            </CollectionView.ItemsLayout>
+            <CollectionView.EmptyView>
+                <Label Text="暂无专区" TextColor="{StaticResource Gray500}" HorizontalOptions="Center" Padding="0,60"/>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="dtos:CategoryDto">
+                    <!-- 外层这层 Grid 不能省：CollectionView 的单元格高度只取「测量尺寸」，
+                         而 Border 自己的 Margin **不计入**单元格高度 → 投影没有落点，会被
+                         setShadowLayer 的父级裁剪切成左下/右下两个直角小方块。
+                         套一层 Grid 后，Grid 的 DesiredSize = Border + Margin，单元格才有空间。 -->
+                    <Grid>
+                        <!-- 右 Margin 必须 ≥ offsetX + radius（3+10=13dp），否则投影在淡出中途被
+                             单元格的框切断，右缘会出现一条生硬的竖边（观感"很怪"）。
+                             下 16 同理对应 offsetY(6)+radius(10)。 -->
+                        <Border Style="{StaticResource ShadowTile}"
+                                HeightRequest="96" Padding="14" Margin="6,4,14,16"
+                                BackgroundColor="{Binding ColorHex}">
+                            <!-- 动效与点击都要挂在卡片本身 (Border) 上，理由同 HomeView 音乐专区色卡：
+                                 挂在内层内容 Grid 上时，按下去只有文字在缩，色卡不动，看不出反馈。 -->
+                            <Border.Behaviors>
+                                <behaviors:PressFeedbackBehavior PressedScale="0.95" PressedOpacity="0.7"/>
+                            </Border.Behaviors>
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenZoneCommand}"
+                                    CommandParameter="{Binding .}"/>
+                            </Border.GestureRecognizers>
+                            <!-- 同 HomeView：VisualStateManager 的 Pressed 状态对 Border 不生效（MAUI 只为
+                                 Button / ImageButton 定义），动效一律由 PressFeedbackBehavior 负责。 -->
                             <Grid RowDefinitions="Auto,*" RowSpacing="6">
-                                <Grid.Behaviors>
-                                    <behaviors:PressFeedbackBehavior PressedScale="0.95" PressedOpacity="0.7"/>
-                                </Grid.Behaviors>
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer
-                                        Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.OpenZoneCommand}"
-                                        CommandParameter="{Binding .}"/>
-                                </Grid.GestureRecognizers>
-                                <VisualStateManager.VisualStateGroups>
-                                    <VisualStateGroupList>
-                                        <VisualStateGroup x:Name="CommonStates">
-                                            <VisualState x:Name="Normal"/>
-                                            <VisualState x:Name="Pressed">
-                                                <VisualState.Setters>
-                                                    <Setter Property="Opacity" Value="0.7"/>
-                                                    <Setter Property="Scale" Value="0.97"/>
-                                                </VisualState.Setters>
-                                            </VisualState>
-                                        </VisualStateGroup>
-                                    </VisualStateGroupList>
-                                </VisualStateManager.VisualStateGroups>
                                 <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
                                     <Label FontFamily="MaterialIcons" Text="{Binding IconGlyph}" FontSize="16" TextColor="White" VerticalOptions="Center"/>
                                     <Label Text="{Binding Name}" FontSize="16" FontAttributes="Bold" TextColor="White"
@@ -64,10 +67,10 @@
                                 <Label Grid.Row="1" Text="{Binding Slogan}" FontSize="11" TextColor="White" Opacity="0.9"
                                        LineBreakMode="TailTruncation" MaxLines="2" VerticalOptions="Start"/>
                             </Grid>
-                        </Frame>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-        </ScrollView>
+                        </Border>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
     </Grid>
 </ContentPage>

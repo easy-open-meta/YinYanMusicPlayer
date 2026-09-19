@@ -34,9 +34,21 @@ public partial class LoginViewModel(IAuthService auth) : ObservableObject
             await auth.LoginAsync(UserName.Trim(), Password);
             await Shell.Current.GoToAsync("///main");
         }
-        catch (Exception)
+        catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            ErrorMessage = "登录失败，请检查用户名和密码。";
+            // 「用户名或密码错误」≠ 「连不上服务器」—— 这两种之前被吞成同一条文案，是早期
+            // 「真机登录失败」排查时误导我们排查客户端的根本原因（M0 文档已记一笔）。
+            ErrorMessage = "用户名或密码错误。";
+        }
+        catch (System.Net.Http.HttpRequestException ex)
+        {
+            // ex.StatusCode == null 表示连接级失败（DNS / 拒连 / 超时 / TLS）；有码表示协议级失败。
+            // 都归到「连不上/服务异常」一类，让用户去检查地址/网络（去服务器设置页）。
+            ErrorMessage = $"连不上服务器：{ex.Message}{(ex.StatusCode is null ? "" : $"（HTTP {(int)ex.StatusCode}）")}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "登录失败：" + ex.Message;
         }
         finally
         {

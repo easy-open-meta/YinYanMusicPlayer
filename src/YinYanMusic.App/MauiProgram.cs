@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿using CommunityToolkit.Maui;
+﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using YinYanMusic.App.Services;
 using YinYanMusic.App.ViewModels;
@@ -31,14 +31,22 @@ public static class MauiProgram
 		Routing.RegisterRoute("myPlaylists", typeof(MyPlaylistsPage));
 		Routing.RegisterRoute("followers", typeof(FollowersPage));
 		Routing.RegisterRoute("userDetail", typeof(UserPage));
+		Routing.RegisterRoute("settings", typeof(SettingsPage));
+
+		// API 地址解析器：单例。M0.5 让 API 地址可配置（应用内设置 > 环境变量 > api.json > 默认）。
+		builder.Services.AddSingleton<ApiConfigStore>();
 
 		// 基础设施
 		builder.Services.AddSingleton<IAuthService, AuthService>();
 		builder.Services.AddSingleton<IMusicApi, MusicApiService>();
 		builder.Services.AddSingleton<PlayerService>();
 		builder.Services.AddTransient<AuthTokenHandler>();
+		builder.Services.AddTransient<SettingsViewModel>();
+		builder.Services.AddTransient<SettingsPage>();
 
 		// HttpClient（自动注入令牌）
+		// ⚠️ 不设 BaseAddress：路径全部由 MusicApiService 内的 Abs() 拼绝对地址（见 ApiConfig.cs 注释）。
+		// 这样 ApiConfig.BaseUrl 改了之后**下一次请求就生效**，不用重建 HttpClient。
 		builder.Services.AddSingleton<HttpClient>(sp =>
 		{
 			var handler = new HttpClientHandler();
@@ -47,10 +55,22 @@ public static class MauiProgram
 				InnerHandler = handler
 			})
 			{
-				BaseAddress = new Uri(ApiConfig.BaseUrl),
 				Timeout = TimeSpan.FromSeconds(30)
 			};
 		});
+
+		// 动态配色：接口共享，实现按平台注册
+		// （IBlurService 走平台原生模糊，仅 Android 12+ 可用；IAcrylicImageService 是
+		//   自己糊像素的亚克力底图，两端都实现，浮窗铺底用它）
+#if ANDROID
+		builder.Services.AddSingleton<IAccentColorService, AndroidAccentColorService>();
+		builder.Services.AddSingleton<IBlurService, AndroidBlurService>();
+		builder.Services.AddSingleton<IAcrylicImageService, AndroidAcrylicImageService>();
+#elif WINDOWS
+		builder.Services.AddSingleton<IAccentColorService, WindowsAccentColorService>();
+		builder.Services.AddSingleton<IBlurService, WindowsBlurService>();
+		builder.Services.AddSingleton<IAcrylicImageService, WindowsAcrylicImageService>();
+#endif
 
 		// ViewModel
 		builder.Services.AddTransient<LoginViewModel>();

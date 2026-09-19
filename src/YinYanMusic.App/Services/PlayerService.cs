@@ -29,7 +29,6 @@ public partial class PlayerService(IMusicApi api) : ObservableObject
 #if ANDROID
     private IPlayer? _exoPlayer;
     private CustomForwardingPlayer? _forwardingPlayer;
-    private double _lastPosSec;
 #endif
 
     static void LogInfo(string msg)
@@ -109,6 +108,12 @@ public partial class PlayerService(IMusicApi api) : ObservableObject
     public bool HasCurrent => Current is not null;
     public string CurrentTitle => Current?.Title ?? "未在播放";
     public string CurrentArtist => Current?.ArtistName ?? string.Empty;
+
+    /// <summary>
+    /// 当前歌曲所属专辑名。没有专辑（`AlbumId` 为空）时返回空字符串，
+    /// 调用方据此隐藏「复制专辑名」这类选项（播放页的长按复制菜单）。
+    /// </summary>
+    public string CurrentAlbum => Current?.AlbumName ?? string.Empty;
     public string CoverUrl => Current?.CoverUrl is null ? string.Empty : ApiConfig.Absolute(Current.CoverUrl);
 
     /// <summary>
@@ -171,7 +176,11 @@ public partial class PlayerService(IMusicApi api) : ObservableObject
         if (_exoPlayer is null) return;
         try
         {
-            _exoPlayer.RepeatMode = PlayMode == PlayMode.SingleLoop ? 1 : 2;
+            // ExoPlayer 的时间线里永远只有当前一首歌（队列在 _queue 里，切歌靠 PlayAt 换源），
+            // 因此这里不能用 REPEAT_ALL——"REPEAT_ALL + 单元素列表"会让同一首无限重播。
+            // 只有单曲循环交给 ExoPlayer（REPEAT_ONE）；其余模式 REPEAT_OFF，播完停住，
+            // 由 MediaEnded 事件驱动 NextAsync（该事件后台照常派发，不依赖被冻结的 UI 定时器）。
+            _exoPlayer.RepeatMode = PlayMode == PlayMode.SingleLoop ? 1 : 0;
             _exoPlayer.ShuffleModeEnabled = PlayMode == PlayMode.Random;
             Android.Util.Log.Info("YinYan", $"ApplyPlayModeToExoPlayer: mode={PlayMode}, repeat={_exoPlayer.RepeatMode}, shuffle={_exoPlayer.ShuffleModeEnabled}");
         }
@@ -186,8 +195,11 @@ public partial class PlayerService(IMusicApi api) : ObservableObject
     partial void OnIsPlayingChanged(bool value)
     {
         if (Current is null) return;
+        // 切歌窗口（_mediaReady=false，新源尚未打开）里 PositionSeconds 可能仍是定时器
+        // 轮询到的上一首位置，照实上报会让系统面板进度条残留旧歌进度，此窗口一律上报 0。
+        var positionMs = _mediaReady ? (long)(PositionSeconds * 1000) : 0;
         MediaNotificationManager.Instance.UpdatePlaybackState(
-            value, (long)(PositionSeconds * 1000), (long)(DurationSeconds * 1000));
+            value, positionMs, (long)(DurationSeconds * 1000));
     }
 #endif
 
@@ -266,22 +278,14 @@ public partial class PlayerService(IMusicApi api) : ObservableObject
                 {
                     PositionSeconds = _player.Position.TotalSeconds;
                     var dur = _player.Duration.TotalSeconds;
-                    if (dur > 1)
+                    if (dur > 1 && (Current is null || Current.DurationSeconds <= 0))
                     {
                         DurationSeconds = dur;
                     }
-#if ANDROID
-                    if (_exoPlayer is not null && _queue.Count > 1 && IsPlaying && PlayMode != PlayMode.SingleLoop)
-                    {
-                        var pos = _exoPlayer.CurrentPosition / 1000.0;
-                        if (_lastPosSec > 1 && pos < 0.3 && _lastPosSec > DurationSeconds - 1.5)
-                        {
-                            Android.Util.Log.Info("YinYan", $"Timer: loop detected, pos={pos:F1}, last={_lastPosSec:F1}, dur={DurationSeconds:F1}, advancing");
-                            _ = NextAsync();
-                        }
-                        _lastPosSec = pos;
-                    }
-#endif
+                    // 此处曾有一段"位置跳回开头即手动 NextAsync"的循环检测 hack，
+                    // 用于抵消 ExoPlayer REPEAT_ALL 在单元素列表上的无限重播。
+                    // 现在非单曲循环统一 REPEAT_OFF，播完由 MediaEnded 事件驱动切歌
+                    //（事件不依赖本定时器，后台照常派发），hack 已删除。
                 }
                 catch { }
             }
@@ -321,7 +325,6 @@ public partial class PlayerService(IMusicApi api) : ObservableObject
 #if ANDROID
         _forwardingPlayer = null;
         _exoPlayer = null;
-        _lastPosSec = 0;
 #endif
         LogInfo("DetachPlayer: 已解绑事件并停止进度定时器");
     }
@@ -352,10 +355,17 @@ public partial class PlayerService(IMusicApi api) : ObservableObject
             var dur = _player?.Duration.TotalSeconds ?? 0;
             if (dur > 0)
             {
-                DurationSeconds = dur;
-                if (Current is not null)
-                    // 与进度条显示同口径：向下取整，避免列表 3:01 / 播放页 3:00 的 1 秒偏差
-                    Current.DurationSeconds = (int)dur;
+                // 偏差日志：API 有效且与实际偏差>5s 时记录，供后端元数据治理
+                if (Current is not null && Current.DurationSeconds > 0 && Math.Abs(dur - Current.DurationSeconds) > 5)
+                    LogWarn($"时长偏差: API={Current.DurationSeconds}s, 实际={dur:F0}s, 歌曲={Current.Title}");
+                // 守卫：仅 API 时长缺失(<=0)才用实际时长回填，API 有效时保持权威值
+                if (Current is null || Current.DurationSeconds <= 0)
+                {
+                    DurationSeconds = dur;
+                    if (Current is not null)
+                        // 与进度条显示同口径：向下取整，避免列表 3:01 / 播放页 3:00 的 1 秒偏差
+                        Current.DurationSeconds = (int)dur;
+                }
             }
         }
         catch { }
@@ -373,10 +383,15 @@ public partial class PlayerService(IMusicApi api) : ObservableObject
                 var dur = _player?.Duration.TotalSeconds ?? 0;
                 if (dur > 1)
                 {
-                    DurationSeconds = dur;
-                    if (Current is not null)
-                        // 与进度条显示同口径：向下取整
-                        Current.DurationSeconds = (int)dur;
+                    if (Current is not null && Current.DurationSeconds > 0 && Math.Abs(dur - Current.DurationSeconds) > 5)
+                        LogWarn($"时长偏差: API={Current.DurationSeconds}s, 实际={dur:F0}s, 歌曲={Current.Title}");
+                    if (Current is null || Current.DurationSeconds <= 0)
+                    {
+                        DurationSeconds = dur;
+                        if (Current is not null)
+                            // 与进度条显示同口径：向下取整
+                            Current.DurationSeconds = (int)dur;
+                    }
                 }
             }
             catch { }
@@ -497,6 +512,13 @@ public partial class PlayerService(IMusicApi api) : ObservableObject
                 string.IsNullOrEmpty(song.CoverUrl) ? null : ApiConfig.Absolute(song.CoverUrl));
             MediaNotificationManager.Instance.UpdatePlaybackState(
                 true, 0, (long)(DurationSeconds * 1000));
+            // 同步触发 ExoPlayer position=0 discontinuity，经 ForwardingPlayer 基类事件转发
+            // 传播给 Media3 MediaSession（Android 13+ 系统面板实际绑定的会话），
+            // 系统面板进度条立即归零。不依赖换源事件的异步传播时序（spec 3.3 根因）。
+            // 不调 Pause：避免 PAUSED→PLAYING 状态闪烁；旧歌 position=0 的瞬态由紧随的
+            // 换源立即 Stop 覆盖，无感知。不调 base.SeekToNext：单元素列表有 STATE_ENDED 副作用。
+            try { _exoPlayer?.SeekTo(0); }
+            catch (Exception ex) { Android.Util.Log.Warn("YinYan", $"PlayAt: SeekTo(0) discontinuity failed: {ex.Message}"); }
 #endif
             System.Diagnostics.Debug.WriteLine($"[播放] {url}");
             _playPending = true;   // 播放意图：若紧随的 Play() 在切源时被 Windows 丢弃，MediaOpened 后会补放
@@ -507,7 +529,7 @@ public partial class PlayerService(IMusicApi api) : ObservableObject
             {
                 try
                 {
-                    _exoPlayer.RepeatMode = PlayMode == PlayMode.SingleLoop ? 1 : 2;
+                    _exoPlayer.RepeatMode = PlayMode == PlayMode.SingleLoop ? 1 : 0;
                     _exoPlayer.ShuffleModeEnabled = PlayMode == PlayMode.Random;
                     Android.Util.Log.Info("YinYan", $"PlayAt: RepeatMode={_exoPlayer.RepeatMode}, Shuffle={_exoPlayer.ShuffleModeEnabled}");
                 }

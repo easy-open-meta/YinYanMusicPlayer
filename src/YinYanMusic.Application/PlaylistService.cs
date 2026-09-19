@@ -29,7 +29,7 @@ public class PlaylistService(MusicDbContext db, AudioMetadataService metadata) :
         // 系统歌单（如“我喜欢的音乐”）个人可见，不出现在公开的搜索/精选列表里
         q = q.Where(p => !p.IsSystem);
         if (!string.IsNullOrWhiteSpace(keyword))
-            q = q.Where(p => p.Name.Contains(keyword));
+            q = q.Where(p => EF.Functions.ILike(p.Name, LikePattern.Contains(keyword)));
         if (categoryId.HasValue) q = q.Where(p => p.CategoryId == categoryId);
         if (ownerId.HasValue) q = q.Where(p => p.OwnerId == ownerId);
 
@@ -70,7 +70,8 @@ public class PlaylistService(MusicDbContext db, AudioMetadataService metadata) :
             playlist.OwnerId, playlist.Owner.DisplayName,
             userId == playlist.OwnerId,
             userId.HasValue && playlist.CollectedBy.Any(c => c.UserId == userId),
-            songDtos);
+            songDtos,
+            playlist.CategoryId, playlist.Category?.Name, playlist.IsSystem);
     }
 
     public async Task<PlaylistDto> CreateAsync(long userId, CreatePlaylistRequest req)
@@ -94,11 +95,14 @@ public class PlaylistService(MusicDbContext db, AudioMetadataService metadata) :
         var playlist = await db.Playlists.FindAsync(id);
         if (playlist is null) return ServiceResult.Fail("歌单不存在。");
         if (playlist.OwnerId != userId) return ServiceResult.Fail("无权操作。");
+        // 系统歌单（“我喜欢的音乐”）由注册流程生成、与 LikedSongs 绑定，不允许改名/换标签
+        if (playlist.IsSystem) return ServiceResult.Fail("系统歌单不可修改。");
 
         if (!string.IsNullOrWhiteSpace(req.Name)) playlist.Name = req.Name.Trim();
         if (req.Description is not null) playlist.Description = req.Description.Trim();
         if (req.CoverUrl is not null) playlist.CoverUrl = req.CoverUrl;
-        if (req.CategoryId.HasValue) playlist.CategoryId = req.CategoryId;
+        if (req.ClearCategory) playlist.CategoryId = null;
+        else if (req.CategoryId.HasValue) playlist.CategoryId = req.CategoryId;
         await db.SaveChangesAsync();
         return ServiceResult.Ok();
     }
@@ -108,6 +112,8 @@ public class PlaylistService(MusicDbContext db, AudioMetadataService metadata) :
         var playlist = await db.Playlists.FindAsync(id);
         if (playlist is null) return ServiceResult.Fail("歌单不存在。");
         if (playlist.OwnerId != userId) return ServiceResult.Fail("无权操作。");
+        // 兜底：前端已隐藏“我喜欢的音乐”的删除入口，服务端再拦一道，避免绕过 UI 直接调接口删掉
+        if (playlist.IsSystem) return ServiceResult.Fail("系统歌单不可删除。");
         db.Playlists.Remove(playlist);
         await db.SaveChangesAsync();
         return ServiceResult.Ok();

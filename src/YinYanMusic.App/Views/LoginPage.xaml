@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:YinYanMusic.App.ViewModels"
@@ -6,7 +6,8 @@
              BackgroundColor="{StaticResource PageBackground}">
 
 
-    <Grid RowDefinitions="Auto,*,Auto" Padding="32,64">
+    <!-- 右 padding 由 32 收到 19：与表单控件的 13dp 右 Margin 相抵，把位置还给它们 -->
+    <Grid RowDefinitions="Auto,*,Auto" Padding="32,64,19,64">
         <VerticalStackLayout Grid.Row="0" Spacing="8" HorizontalOptions="Center">
             <Label Text="音 言" FontSize="42" FontAttributes="Bold" TextColor="#512BD4"
                    HorizontalOptions="Center"/>
@@ -14,25 +15,38 @@
                    HorizontalOptions="Center"/>
         </VerticalStackLayout>
 
+        <!-- 表单：SurfaceField 的投影需要 13dp 的右落点（Shadow Offset.X 3 + Radius 10），
+             所以每个控件用**自己的**右 Margin 留白（给父容器加 Padding 是无效的）；
+             同时把 Grid 的右 padding 由 32 收到 19 与它相抵 —— 控件的实际位置和改动前
+             完全一致，只是多出了投影的空间。字段下缘不需要额外留白：Spacing 16 正好
+             等于投影的纵向扩散范围（Offset.Y 6 + Radius 10）。 -->
         <VerticalStackLayout Grid.Row="1" Spacing="16" VerticalOptions="Center">
-            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
-                   BorderColor="{StaticResource CardBorder}">
+            <Border Style="{StaticResource SurfaceField}" Padding="14,10" Margin="0,0,13,0">
                 <Entry Placeholder="用户名" Text="{Binding UserName}" ReturnType="Next"/>
-            </Frame>
-            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
-                   BorderColor="{StaticResource CardBorder}">
+            </Border>
+            <Border Style="{StaticResource SurfaceField}" Padding="14,10" Margin="0,0,13,0">
                 <Entry Placeholder="密码" Text="{Binding Password}" IsPassword="True" ReturnType="Done"/>
-            </Frame>
+            </Border>
 
             <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Danger}"
                    FontSize="13" IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmpty}}"/>
 
             <Button Text="登 录" Command="{Binding LoginCommand}" IsEnabled="{Binding !IsBusy}"
                     BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}"
-                    CornerRadius="12" HeightRequest="48" FontSize="16"/>
+                    CornerRadius="12" HeightRequest="48" FontSize="16" Margin="0,0,13,0"/>
 
             <Button Text="没有账号？立即注册" Command="{Binding GoRegisterCommand}"
-                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"/>
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}" Margin="0,0,13,0"/>
+
+            <!-- M0.5：连不上服务器时，登录页底部直接给出「服务器设置」入口。
+                 这样 "请检查用户名和密码" / "连不上服务器" 两种故障能直接落到正确行动上。 -->
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="6" Margin="0,6,0,0">
+                <Label Text="服务器：连不上？去" FontSize="12" TextColor="#8A8AA3" VerticalOptions="Center" />
+                <Button Text="服务器设置"
+                        Clicked="OnOpenSettings"
+                        BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
+                        FontSize="12" Padding="12,0" HeightRequest="48" Margin="0"/>
+            </HorizontalStackLayout>
         </VerticalStackLayout>
     </Grid>
 </ContentPage>

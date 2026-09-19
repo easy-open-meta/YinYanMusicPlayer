@@ -369,3 +369,8 @@ test_login.json
 /src/YinYanMusic.Api/wwwroot/media/image
 /.workbuddy
 /docs
+/src/YinYanMusic.App/Platforms/Android/Resources/raw/yinyan_local.cer
+
+# 打包脚本例外：上面的 *.ps1 是"本地脚本不入库"的默认策略，
+# 但下面这个是 Windows 客户端打包流程的一部分，必须跟着仓库走。
+!installer/*.ps1

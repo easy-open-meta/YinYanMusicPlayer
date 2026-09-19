@@ -19,6 +19,7 @@ public class QueueItem
 public partial class MainPage : ContentPage
 {
     private readonly PlayerService _player;
+    private readonly IAcrylicImageService _acrylic = ServiceHelper.GetRequiredService<IAcrylicImageService>();
     private readonly HomeView _homeView;
     private readonly LibraryView _libraryView;
     private readonly SearchView _searchView;
@@ -50,7 +51,6 @@ public partial class MainPage : ContentPage
         // 抽屉初始隐藏在屏幕左侧外
         DrawerPanel.TranslationX = -DrawerWidth;
         CurrentThemeLabel.Text = ThemeService.Instance.CurrentDisplayName;
-        BuildThemeSwatches();
 
         // 主题切换时刷新代码里手动设置的颜色（底部选中 Tab、当前主题名）
         ThemeService.Instance.ThemeChanged += (_, _) =>
@@ -59,7 +59,6 @@ public partial class MainPage : ContentPage
             {
                 ApplyTabColors();
                 CurrentThemeLabel.Text = ThemeService.Instance.CurrentDisplayName;
-                RefreshSwatchSelection();
             });
         };
 
@@ -98,14 +97,14 @@ public partial class MainPage : ContentPage
 	// PlayerService 是单例，生命周期长于页面：订阅与取消订阅必须成对，
 	// 否则离场后的页面实例会被单例的事件一直引用（MainPage 是 Transient），
 	// 且旧实例仍会去更新已经销毁的 UI。
-	private void SubscribePlayer()
-	{
-		if (_playerSubscribed) return;
-		_playerSubscribed = true;
-		_player.PropertyChanged += OnPlayerPropertyChanged;
-		MiniPlayer.IsVisible = _player.HasCurrent;
-		UpdateMiniProgress();
-	}
+    private void SubscribePlayer()
+    {
+        if (_playerSubscribed) return;
+        _playerSubscribed = true;
+        _player.PropertyChanged += OnPlayerPropertyChanged;
+        MiniPlayer.IsVisible = _player.HasCurrent;
+        UpdateMiniProgress();
+    }
 
 	private void UnsubscribePlayer()
 	{
@@ -222,19 +221,29 @@ public partial class MainPage : ContentPage
         QueueList.ItemsSource = items;
         QueueCountLabel.Text = $"共 {items.Count} 首";
         QueueOverlay.IsVisible = true;
+        // 底图随后补上：先让浮窗立刻出来（色调层本身已保证可读），
+        // 磨砂底图生成好再换上，避免首次下载封面时点击要干等。
+        _ = RefreshQueueAcrylicAsync();
+    }
+
+    /// <summary>给播放列表浮窗的亚克力底层换上当前封面的磨砂底图。</summary>
+    private async Task RefreshQueueAcrylicAsync()
+    {
+        var src = await _acrylic.CreateAsync(_player.CoverUrl);
+        if (src is not null) QueueAcrylicCover.Source = src;
     }
 
     private void OnCloseQueueClicked(object? sender, EventArgs e) => QueueOverlay.IsVisible = false;
 
     private void OnOverlayBackgroundTapped(object? sender, EventArgs e) => QueueOverlay.IsVisible = false;
 
-    private void OnQueueSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    // 显式 Tap 事件：SelectionChanged 在 Android 上被行内 PointerGestureRecognizer 吞掉，收不到。
+    private void OnQueueItemTapped(object? sender, TappedEventArgs e)
     {
-        if (e.CurrentSelection.FirstOrDefault() is QueueItem item)
+        if ((sender as BindableObject)?.BindingContext is QueueItem item)
         {
             _player.PlayAt(item.Index);
             QueueOverlay.IsVisible = false;
-            QueueList.SelectedItem = null;
         }
     }
 
@@ -263,83 +272,24 @@ public partial class MainPage : ContentPage
 
     private async void OnDrawerBackdropTapped(object? sender, EventArgs e) => await CloseDrawerAsync();
 
-    private async void OnThemeColorClicked(object? sender, EventArgs e) => await OpenThemePickerAsync();
-
-    private async Task OpenThemePickerAsync()
+    /// <summary>
+    /// 主题颜色：交给全局对话框（与「新建歌单」同一套居中卡片）。
+    /// 弹窗只返回用户选中的 key，**应用主题是这里的职责**；ThemeChanged 事件会顺手
+    /// 刷新抽屉里的主题名与底部 Tab 配色。
+    /// </summary>
+    private async void OnThemeColorClicked(object? sender, EventArgs e)
     {
-        ThemePickerCard.Opacity = 0;
-        ThemePickerOverlay.IsVisible = true;
-        await ThemePickerCard.FadeTo(1, 200, Easing.CubicOut);
-    }
-
-    private async Task CloseThemePickerAsync()
-    {
-        await ThemePickerCard.FadeTo(0, 160, Easing.CubicIn);
-        ThemePickerOverlay.IsVisible = false;
-    }
-
-    private async void OnThemePickerBackdropTapped(object? sender, EventArgs e) => await CloseThemePickerAsync();
-
-    private async void OnThemePickerCancel(object? sender, EventArgs e) => await CloseThemePickerAsync();
-
-    private void BuildThemeSwatches()
-    {
-        ThemeSwatches.Children.Clear();
-        var themes = ThemeService.Instance.Themes;
-        for (var i = 0; i < themes.Count; i++)
-        {
-            var t = themes[i];
-            var check = new Label
-            {
-                FontFamily = "MaterialIcons",
-                Text = "\uE5CA",
-                FontSize = 24,
-                TextColor = Color.FromArgb(t.OnPrimary),
-                HorizontalOptions = LayoutOptions.Center,
-                VerticalOptions = LayoutOptions.Center,
-                IsVisible = t.Key == ThemeService.Instance.CurrentKey
-            };
-            var frame = new Frame
-            {
-                CornerRadius = 28,
-                Padding = 0,
-                BackgroundColor = Color.FromArgb(t.Primary),
-                BorderColor = Color.FromArgb("#C4C4CC"),
-                HeightRequest = 56,
-                WidthRequest = 56,
-                HasShadow = false,
-                Content = check
-            };
-            var tap = new TapGestureRecognizer();
-            var key = t.Key;
-            tap.Tapped += async (_, _) => await OnThemeChosen(key);
-            frame.GestureRecognizers.Add(tap);
-            ThemeSwatches.Children.Add(frame);
-            Grid.SetColumn(frame, i);
-        }
-    }
-
-    private void RefreshSwatchSelection()
-    {
-        var current = ThemeService.Instance.CurrentKey;
-        for (var i = 0; i < ThemeSwatches.Children.Count; i++)
-        {
-            if (ThemeSwatches.Children[i] is Frame frame && frame.Content is Label check)
-                check.IsVisible = ThemeService.Instance.Themes[i].Key == current;
-        }
-    }
-
-    private async Task OnThemeChosen(string key)
-    {
+        var key = await SongMenuHelper.ShowThemePickerAsync();
+        if (key is null) return;                       // 取消 = 什么都不做
         ThemeService.Instance.ApplyTheme(key);
         CurrentThemeLabel.Text = ThemeService.Instance.CurrentDisplayName;
-        RefreshSwatchSelection();
-        await CloseThemePickerAsync();
     }
 
     private async void OnDrawerLogoutClicked(object? sender, EventArgs e)
     {
-        var confirm = await DisplayAlert("退出登录", "确定要退出当前账号吗？", "退出", "取消");
+        // 与删除歌单同一套居中圆角确认框（不用原生 DisplayAlert，风格与全站统一）
+        var confirm = await SongMenuHelper.ShowRoundedConfirmAsync(
+            "退出登录", "确定要退出当前账号吗？", "退出", "取消", destructive: true);
         if (!confirm) return;
         await _auth.LogoutAsync();
         await CloseDrawerAsync();

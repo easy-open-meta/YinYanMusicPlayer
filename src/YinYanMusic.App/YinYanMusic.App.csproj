@@ -14,7 +14,7 @@
 
 		<ApplicationTitle>音言音乐</ApplicationTitle>
 		<ApplicationId>com.yinyan.music</ApplicationId>
-		<ApplicationDisplayVersion>2.1.0</ApplicationDisplayVersion>
+		<ApplicationDisplayVersion>2.2.0</ApplicationDisplayVersion>
 		<ApplicationVersion>2</ApplicationVersion>
 
 		<!-- NuGet 还原要求 PackageVersion 在所有目标框架下取值一致：
@@ -25,6 +25,16 @@
 		<PackageVersion>$(ApplicationDisplayVersion)</PackageVersion>
 
 		<WindowsPackageType>None</WindowsPackageType>
+
+		<!-- 跨平台求值放行：本项目多目标（android + windows），在非 Windows 主机上
+		     （如 CI 的 Linux APK runner）执行 `dotnet restore YinYanMusic.slnx` 时，
+		     Windows TFM 需要显式开启才能被求值/还原，否则直接报
+		     NETSDK1100: To build a project targeting Windows on this operating system,
+		     set the EnableWindowsTargeting property to true.
+		     ⚠️ 这只让「还原/求值」通过，**不代表能在 Linux 上打出 Windows 包** ——
+		     WinUI 3 的 XAML 编译器与打包工具只能在 Windows 上跑，
+		     Windows 产物走本机的 installer\build-client-installer.ps1。 -->
+		<EnableWindowsTargeting Condition="!$([MSBuild]::IsOSPlatform('Windows'))">true</EnableWindowsTargeting>
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
 

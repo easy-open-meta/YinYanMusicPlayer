@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="YinYanMusic.App.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="服务器设置"
+    BackgroundColor="#FAFAFC">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="14" Padding="20" MaximumWidthRequest="540">
+
+            <Label Text="服务器设置" FontSize="20" FontAttributes="Bold" Margin="0,0,0,4" />
+            <Label Text="{Binding SourceLabel}" FontSize="12" TextColor="#8A8AA3" Margin="0,-8,0,8" />
+
+            <Border Stroke="#ECECF2" StrokeThickness="1" BackgroundColor="White" StrokeShape="RoundRectangle 16" Padding="18">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="API 地址" FontSize="13" FontAttributes="Bold" />
+                    <Entry
+                        Text="{Binding Url}"
+                        Placeholder="https://yinyan.oscode.top 或 http://192.168.x.x:5116"
+                        Keyboard="Url"
+
+                        IsSpellCheckEnabled="False"
+                        ClearButtonVisibility="WhileEditing" />
+                    <Label Text="支持 http://lan-ip:port 或 https://域名/api。" FontSize="11" TextColor="#8A8AA3" />
+
+                    <HorizontalStackLayout Spacing="10">
+                        <Button Text="测试连接" Command="{Binding TestCommand}" />
+                        <Button Text="保存" Command="{Binding SaveCommand}" BackgroundColor="#4F46E5" TextColor="White" />
+                    </HorizontalStackLayout>
+
+                    <Label Text="{Binding TestResult}" TextColor="{Binding TestColor}" FontSize="12" />
+
+                    <Label Text="改动后立即生效（登录、查询、播放等都会用新地址）。" FontSize="11" TextColor="#8A8AA3" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Stroke="#ECECF2" StrokeThickness="1" BackgroundColor="White" StrokeShape="RoundRectangle 16" Padding="18">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="恢复默认" FontSize="13" FontAttributes="Bold" />
+                    <Label Text="清掉设备上的所有覆盖（应用设置 + 配置文件）。环境变量不会被清。" FontSize="11" TextColor="#8A8AA3" />
+                    <Button Text="恢复默认地址" Command="{Binding ResetCommand}" BackgroundColor="Transparent" TextColor="#E5484D" />
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

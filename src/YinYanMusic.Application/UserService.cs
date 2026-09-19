@@ -21,9 +21,9 @@ public class UserService(MusicDbContext db) : IUserService
     public async Task<IReadOnlyList<UserDto>> SearchAsync(string? keyword, int limit)
     {
         if (string.IsNullOrWhiteSpace(keyword)) return [];
-        var kw = keyword.Trim();
+        var kw = LikePattern.Contains(keyword.Trim());
         return await db.Users.AsNoTracking()
-            .Where(u => u.UserName.Contains(kw) || u.DisplayName.Contains(kw))
+            .Where(u => EF.Functions.ILike(u.UserName, kw) || EF.Functions.ILike(u.DisplayName, kw))
             .OrderBy(u => u.Id)
             .Take(limit)
             .Select(u => new UserDto(u.Id, u.UserName, u.DisplayName, u.Bio, u.AvatarUrl, u.Gender, u.CreatedAt))

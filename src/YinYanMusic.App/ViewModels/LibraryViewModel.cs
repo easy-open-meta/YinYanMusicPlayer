@@ -111,9 +111,13 @@ public partial class LibraryViewModel(IMusicApi api, IAuthService auth, PlayerSe
     [RelayCommand]
     private async Task CreatePlaylistAsync()
     {
-        var name = await SongMenuHelper.ShowInputDialogAsync("新建歌单", "歌单名称：", "我的歌单");
-        if (string.IsNullOrWhiteSpace(name)) return;
-        var trimmedName = name.Trim();
+        // 与「编辑歌单」用同一个居中圆角对话框：一次填名称 + 选标签
+        //（返回 null 表示用户取消；名称已由对话框 Trim 过，空名会就地报错不关闭）
+        var categories = await api.GetCategoriesAsync();
+        var draft = await SongMenuHelper.ShowEditPlaylistAsync("新建歌单", "我的歌单", categories, null, "创建");
+        if (draft is null) return;
+
+        var trimmedName = draft.Name;
         if (trimmedName == "我喜欢的音乐")
         {
             await SongMenuHelper.ShowMessageDialogAsync("提示", "该名称为系统保留，请换个名字", "确定");
@@ -125,7 +129,7 @@ public partial class LibraryViewModel(IMusicApi api, IAuthService auth, PlayerSe
             await SongMenuHelper.ShowMessageDialogAsync("提示", $"已存在名为「{trimmedName}」的歌单，请换个名字", "确定");
             return;
         }
-        var created = await api.CreatePlaylistAsync(trimmedName, null);
+        var created = await api.CreatePlaylistAsync(trimmedName, null, draft.CategoryId);
         if (created is not null) await LoadAsync();
     }
 
@@ -166,7 +170,9 @@ public partial class LibraryViewModel(IMusicApi api, IAuthService auth, PlayerSe
     [RelayCommand]
     private async Task LogoutAsync()
     {
-        var confirm = await SongMenuHelper.ShowConfirmDialogAsync("退出登录", "确定要退出当前账号吗？", "退出", "取消");
+        // 与删除歌单同一套居中圆角确认框（退出是不可逆操作，确认键用危险色）
+        var confirm = await SongMenuHelper.ShowRoundedConfirmAsync(
+            "退出登录", "确定要退出当前账号吗？", "退出", "取消", destructive: true);
         if (!confirm) return;
         await auth.LogoutAsync();
         await Shell.Current.GoToAsync("///login");
@@ -179,9 +185,16 @@ public partial class LibraryViewModel(IMusicApi api, IAuthService auth, PlayerSe
     }
 }
 
-public partial class NowPlayingViewModel(PlayerService player, IMusicApi api) : ObservableObject
+public partial class NowPlayingViewModel(PlayerService player, IMusicApi api, IAccentColorService accent) : ObservableObject
 {
     public PlayerService Player { get; } = player;
+
+    /// <summary>
+    /// 当前封面的主色，播放页背景用它做动态着色。
+    /// 取不到（无封面 / 图里没可用色彩 / 网络失败）时为 null，页面降级到默认深色。
+    /// </summary>
+    [ObservableProperty]
+    private Color? accentColor;
 
     [ObservableProperty]
     private bool isLiked;
@@ -234,6 +247,22 @@ public partial class NowPlayingViewModel(PlayerService player, IMusicApi api) : 
         else
         {
             if (await api.FollowArtistAsync(artistId)) IsArtistFollowed = true;
+        }
+    }
+
+    /// <summary>
+    /// 按当前封面重算主色。由播放页在「进入页面」和「切歌」时调用，
+    /// 不放构造函数里是因为主构造函数类没法写订阅语句，时机交给页面更清楚。
+    /// </summary>
+    public async Task RefreshAccentAsync()
+    {
+        try
+        {
+            AccentColor = await accent.ExtractAsync(Player.CoverUrl);
+        }
+        catch
+        {
+            AccentColor = null;      // 取色失败不影响播放页，降级到默认深色
         }
     }
 

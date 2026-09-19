@@ -40,7 +40,7 @@ public class CatalogService(MusicDbContext db) : ICatalogService
     {
         var q = db.Artists.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(keyword))
-            q = q.Where(a => a.Name.Contains(keyword));
+            q = q.Where(a => EF.Functions.ILike(a.Name, LikePattern.Contains(keyword)));
         var total = await q.CountAsync();
         var items = await q.OrderBy(a => a.Id)
             .Skip((page - 1) * pageSize).Take(pageSize)
@@ -78,7 +78,7 @@ public class CatalogService(MusicDbContext db) : ICatalogService
     {
         var q = db.Albums.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(keyword))
-            q = q.Where(a => a.Name.Contains(keyword));
+            q = q.Where(a => EF.Functions.ILike(a.Name, LikePattern.Contains(keyword)));
         if (artistId.HasValue) q = q.Where(a => a.ArtistId == artistId);
         var total = await q.CountAsync();
         var items = await q.OrderBy(a => a.Id)

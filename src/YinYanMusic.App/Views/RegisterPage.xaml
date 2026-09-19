@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:YinYanMusic.App.ViewModels"
@@ -6,42 +6,40 @@
              BackgroundColor="{StaticResource PageBackground}">
 
 
-    <Grid RowDefinitions="Auto,*" Padding="32,48">
+    <!-- 右 padding 由 48 收到 19：与表单控件的 13dp 右 Margin 相抵，把位置还给它们 -->
+    <Grid RowDefinitions="Auto,*" Padding="32,48,19,48">
         <VerticalStackLayout Grid.Row="0" Spacing="4">
             <Label Text="创建账号" FontSize="28" FontAttributes="Bold"/>
             <Label Text="加入音言，开始你的音乐之旅" FontSize="14" TextColor="{StaticResource Gray500}"/>
         </VerticalStackLayout>
 
+        <!-- 表单：同 LoginPage —— 每个控件自己留 13dp 右 Margin 作投影落点，
+             由 Grid 的右 padding（48 → 19）相抵，控件位置与改动前一致。 -->
         <VerticalStackLayout Grid.Row="1" Spacing="16" VerticalOptions="Center">
-            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
-                   BorderColor="{StaticResource CardBorder}">
+            <Border Style="{StaticResource SurfaceField}" Padding="14,10" Margin="0,0,13,0">
                 <Entry Placeholder="用户名（3-32 个字符）" Text="{Binding UserName}" ReturnType="Next"/>
-            </Frame>
-            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
-                   BorderColor="{StaticResource CardBorder}">
+            </Border>
+            <Border Style="{StaticResource SurfaceField}" Padding="14,10" Margin="0,0,13,0">
                 <Entry Placeholder="昵称（选填）" Text="{Binding DisplayName}" ReturnType="Next"/>
-            </Frame>
-            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
-                   BorderColor="{StaticResource CardBorder}">
+            </Border>
+            <Border Style="{StaticResource SurfaceField}" Padding="14,10" Margin="0,0,13,0">
                 <Picker ItemsSource="{Binding Genders}" SelectedItem="{Binding SelectedGender}" Title="性别"/>
-            </Frame>
-            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
-                   BorderColor="{StaticResource CardBorder}">
+            </Border>
+            <Border Style="{StaticResource SurfaceField}" Padding="14,10" Margin="0,0,13,0">
                 <Entry Placeholder="密码（至少 6 位）" Text="{Binding Password}" IsPassword="True" ReturnType="Next"/>
-            </Frame>
-            <Frame CornerRadius="12" Padding="14,10" BackgroundColor="{StaticResource CardBackground}"
-                   BorderColor="{StaticResource CardBorder}">
+            </Border>
+            <Border Style="{StaticResource SurfaceField}" Padding="14,10" Margin="0,0,13,0">
                 <Entry Placeholder="确认密码" Text="{Binding ConfirmPassword}" IsPassword="True" ReturnType="Done"/>
-            </Frame>
+            </Border>
 
             <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Danger}" FontSize="13"/>
 
             <Button Text="注 册" Command="{Binding RegisterCommand}" IsEnabled="{Binding !IsBusy}"
                     BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}"
-                    CornerRadius="12" HeightRequest="48" FontSize="16"/>
+                    CornerRadius="12" HeightRequest="48" FontSize="16" Margin="0,0,13,0"/>
 
             <Button Text="返回登录" Command="{Binding BackCommand}"
-                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"/>
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}" Margin="0,0,13,0"/>
         </VerticalStackLayout>
     </Grid>
 </ContentPage>

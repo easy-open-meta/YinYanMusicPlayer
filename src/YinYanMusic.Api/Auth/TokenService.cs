@@ -30,6 +30,8 @@ public class TokenService(IOptions<JwtSettings> settings) : ITokenService
             new(JwtRegisteredClaimNames.UniqueName, user.UserName),
             new(ClaimTypes.Name, user.UserName),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            // ⚠️ 必须有角色声明，否则 [Authorize(Roles = "admin")] 会把所有人都拒掉（403）
+            new(ClaimTypes.Role, string.IsNullOrWhiteSpace(user.Role) ? "user" : user.Role),
             new("display_name", user.DisplayName)
         };
 
