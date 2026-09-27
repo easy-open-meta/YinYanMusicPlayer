@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="YinYanMusic.App.Views.AccountEditPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <Grid RowDefinitions="Auto,*" Padding="16,12" RowSpacing="8">
+
+        <!-- 顶部：返回 + 标题 -->
+        <Grid Grid.Row="0" ColumnDefinitions="40,*,40" VerticalOptions="Center">
+            <Button Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
+                    Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+            <Label Grid.Column="1" Text="账号信息" FontSize="20" FontAttributes="Bold"
+                   HorizontalOptions="Center" VerticalOptions="Center"/>
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="14" Padding="0,4,0,20">
+
+                <!-- 头像 -->
+                <Border Style="{StaticResource SurfaceCard}" Padding="18">
+                    <VerticalStackLayout Spacing="12" HorizontalOptions="Center">
+                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 48"
+                                WidthRequest="96" HeightRequest="96" BackgroundColor="{StaticResource PrimarySoft}">
+                            <Grid>
+                                <!-- 用 AbsoluteUrl 转换器：它同时支持 data URI（base64 存库）与旧的相对路径 -->
+                                <Image Source="{Binding AvatarUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"
+                                       WidthRequest="96" HeightRequest="96" IsVisible="{Binding HasAvatar}"/>
+                                <Label FontFamily="MaterialIcons" Text="&#xE7FD;" FontSize="36"
+                                       TextColor="{DynamicResource Accent}" HorizontalOptions="Center"
+                                       VerticalOptions="Center" IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}"/>
+                            </Grid>
+                        </Border>
+                        <Button Text="更换头像" Command="{Binding PickAvatarCommand}" FontSize="13"
+                                BackgroundColor="{StaticResource PrimarySoft}" TextColor="{DynamicResource Accent}"
+                                CornerRadius="18" HeightRequest="36" Padding="16,0"/>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 资料表单 -->
+                <Border Style="{StaticResource SurfaceCard}" Padding="18">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="基本资料" FontSize="15" FontAttributes="Bold"/>
+
+                        <Label Text="用户名" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                        <Entry Text="{Binding UserName}" IsEnabled="False" FontSize="15"/>
+
+                        <Label Text="昵称" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                        <Entry Text="{Binding DisplayName}" Placeholder="显示名称" MaxLength="32" FontSize="15"/>
+
+                        <Label Text="性别" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                        <Picker ItemsSource="{Binding GenderOptions}" SelectedItem="{Binding Gender}" FontSize="15"/>
+
+                        <Label Text="简介" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                        <Editor Text="{Binding Bio}" Placeholder="介绍一下自己" MaxLength="200"
+                                HeightRequest="88" FontSize="14" AutoSize="Disabled"/>
+
+                        <Button Text="保存" Command="{Binding SaveCommand}" FontSize="15"
+                                BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}"
+                                CornerRadius="20" HeightRequest="44"/>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 状态提示：成功/失败用色区分 -->
+                <Label Text="{Binding StatusMessage}" FontSize="13" HorizontalOptions="Center">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding IsError}" Value="True">
+                            <Setter Property="TextColor" Value="{StaticResource Danger}"/>
+                        </DataTrigger>
+                        <DataTrigger TargetType="Label" Binding="{Binding IsError}" Value="False">
+                            <Setter Property="TextColor" Value="{StaticResource Gray500}"/>
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- 上传/保存中的遮罩 -->
+        <Grid Grid.Row="1" IsVisible="{Binding IsBusy}" BackgroundColor="#40000000">
+            <ActivityIndicator IsRunning="{Binding IsBusy}" Color="{DynamicResource Accent}"
+                               HorizontalOptions="Center" VerticalOptions="Center"/>
+        </Grid>
+    </Grid>
+</ContentPage>

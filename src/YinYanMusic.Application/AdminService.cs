@@ -1,77 +1,27 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
-using YinYanMusic.Core.Entities;
 using YinYanMusic.Data;
 
 namespace YinYanMusic.Application;
 
+/// <summary>
+/// 后台的维护类系统任务。
+/// <para>
+/// ⚠️ **"导入音乐"已不在这里**：它收口到了 <see cref="IDirectoryScanService"/>
+/// （读 ATL 标签 + 校验时长 + 递归 + 按相对路径去重），与定时扫描同一条路径。
+/// 历史教训：这里曾有一套"只按文件名拆「歌手 - 歌名」"的导入实现，同一个目录换个入口进来
+/// 就会得到不同质量的记录（无专辑、无发行年份、时长恒为 0、坏文件照收），2026-09-23 已删除。
+/// </para>
+/// </summary>
 public interface IAdminService
 {
-    Task<(int Total, int Imported, string? Error)> ImportAsync(string? dir);
     Task<int> DeleteSeedSongsAsync();
     Task<(int Total, int Updated, string? Error)> ScanDurationsAsync();
 }
 
 public class AdminService(MusicDbContext db, IConfiguration config) : IAdminService
 {
-    private static readonly string[] AudioExts = [".mp3", ".flac", ".m4a", ".wav", ".ogg"];
-
-    public async Task<(int Total, int Imported, string? Error)> ImportAsync(string? dir)
-    {
-        try
-        {
-            var musicDir = dir ?? config["Media:MusicDirectory"];
-            if (string.IsNullOrWhiteSpace(musicDir) || !Directory.Exists(musicDir))
-                return (0, 0, $"目录不存在: {musicDir}");
-
-            var files = Directory.GetFiles(musicDir)
-                .Where(f => AudioExts.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                .OrderBy(f => f)
-                .ToList();
-
-            var existingUrls = await db.Songs.Select(s => s.AudioUrl).ToListAsync();
-            var existingSet = new HashSet<string>(existingUrls);
-            var artistCache = await db.Artists.ToDictionaryAsync(a => a.Name);
-            var imported = 0;
-
-            foreach (var file in files)
-            {
-                var fileName = Path.GetFileName(file);
-                var urlPath = $"/media/audio/{Uri.EscapeDataString(fileName)}";
-                if (existingSet.Contains(urlPath)) continue;
-
-                var (artistName, title) = ParseFileName(fileName);
-                if (artistName.Length > 64) artistName = artistName[..64];
-                if (title.Length > 128) title = title[..128];
-
-                if (!artistCache.TryGetValue(artistName, out var artist))
-                {
-                    artist = new Artist { Name = artistName };
-                    db.Artists.Add(artist);
-                    artistCache[artistName] = artist;
-                }
-
-                db.Songs.Add(new Song
-                {
-                    Title = title,
-                    Artist = artist,
-                    AudioUrl = urlPath,
-                    DurationSeconds = 0
-                });
-                existingSet.Add(urlPath);
-                imported++;
-            }
-
-            await db.SaveChangesAsync();
-            return (files.Count, imported, null);
-        }
-        catch (Exception ex)
-        {
-            return (0, 0, $"{ex.Message} | {ex.InnerException?.Message}");
-        }
-    }
-
     public async Task<int> DeleteSeedSongsAsync()
     {
         var seedSongs = await db.Songs
@@ -97,26 +47,17 @@ public class AdminService(MusicDbContext db, IConfiguration config) : IAdminServ
             var filePath = Path.Combine(musicDir, fileName);
             if (!File.Exists(filePath)) continue;
             var duration = Mp3DurationReader.GetDuration(filePath);
-            if (duration > 0)
-            {
-                song.DurationSeconds = (int)Math.Round(duration);
-                updated++;
-            }
+            if (duration <= 0) continue;
+
+            // 向下取整，与 Mp3DurationReader 的口径一致：这里曾经用 Math.Round，
+            // 会让列表显示比播放页多 1 秒（历史上用估算式时长 + 四舍五入就是这么分叉的）。
+            var seconds = (int)duration;
+            if (song.DurationSeconds == seconds) continue;   // 没变就不算"更新"，也不产生 UPDATE
+
+            song.DurationSeconds = seconds;
+            updated++;
         }
         await db.SaveChangesAsync();
         return (songs.Count, updated, null);
-    }
-
-    private static (string artist, string title) ParseFileName(string fileName)
-    {
-        var name = Path.GetFileNameWithoutExtension(fileName);
-        var idx = name.IndexOf(" - ");
-        if (idx > 0 && idx < name.Length - 3)
-        {
-            var artist = name[..idx].Replace(';', ',').Trim();
-            var title = name[(idx + 3)..].Trim();
-            return (artist, title);
-        }
-        return ("未知艺术家", name.Trim());
     }
 }

@@ -14,7 +14,7 @@
 
 		<ApplicationTitle>音言音乐</ApplicationTitle>
 		<ApplicationId>com.yinyan.music</ApplicationId>
-		<ApplicationDisplayVersion>2.2.0</ApplicationDisplayVersion>
+		<ApplicationDisplayVersion>2.12.0</ApplicationDisplayVersion>
 		<ApplicationVersion>2</ApplicationVersion>
 
 		<!-- NuGet 还原要求 PackageVersion 在所有目标框架下取值一致：
@@ -38,33 +38,89 @@
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
 
+		<!-- Android 网络安全配置：注入 manifest 的 android:networkSecurityConfig 占位符 ${nscRes}。
+		     为什么用占位符选文件而不是在 nsc 里写条件：**声明了 networkSecurityConfig 之后，
+		     manifest 的 android:usesCleartextTraffic 会被系统忽略**，明文许可只认 nsc，
+		     而 <base-config> 是唯一的全局开关（<domain> 不支持网段通配）。
+		     所以"Debug 全开 / Release 严格"只能靠引用不同的 nsc 文件实现。
+		     ⚠️ 必须两个配置都定义：占位符没被替换时 manifest 里会留下字面量，清单解析会失败。
+		     ⚠️ 不要退回用 nsc 的 <debug-overrides>：它只支持 <trust-anchors>，
+		        在里面写 <base-config cleartextTrafficPermitted="true"> 是无效配置（2026-09-22 修正）。 -->
+		<AndroidManifestPlaceholders>nscRes=@xml/network_security_config</AndroidManifestPlaceholders>
+
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+	</PropertyGroup>
+
+	<!-- Debug 构建：明文全开（连局域网/本机后端）。放在单独的 PropertyGroup 里，
+	     因为属性求值按顺序覆盖，同一组里写两个同名属性只有后者生效。 -->
+	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+		<AndroidManifestPlaceholders>nscRes=@xml/network_security_config_debug</AndroidManifestPlaceholders>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<MauiIcon Include="Resources\AppIcon\icon.svg" ForegroundFile="Resources\AppIcon\icon.svg" Color="#512BD4" />
 		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
 		<MauiImage Include="Resources\Images\*" />
-		<MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />
 		<!-- 首页头部 logo：源图是 1092x1103 的描摹矢量图，按 1x 88 生成各密度位图（显示尺寸 44） -->
 		<MauiImage Update="Resources\Images\logo.svg" Resize="True" BaseSize="88,88" />
 		<MauiFont Include="Resources\Fonts\*" />
 		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
 	</ItemGroup>
 
+	<!-- 关于页「构建时间」：构建时把 UTC 时间写进程序集元数据，AboutViewModel 读取展示 -->
+	<ItemGroup>
+		<AssemblyMetadata Include="BuildDate" Value="$([System.DateTime]::UtcNow.ToString('yyyy-MM-dd HH:mm'))" />
+	</ItemGroup>
+
 	<ItemGroup>
 
 		<PackageReference Include="CommunityToolkit.Maui.MediaElement" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<!-- V2.15 站内通知：连 /hubs/notifications（JWT 走查询串 access_token） -->
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" />
 		<PackageReference Include="Microsoft.Maui.Controls" />
 		<PackageReference Include="System.Security.Cryptography.ProtectedData" />
 		<PackageReference Include="Xamarin.AndroidX.Media" Condition="'$(TargetFramework)' == 'net10.0-android'" />
+		<!-- V2.6 本地音乐库：本地曲库存储 + 元数据解析 -->
+		<PackageReference Include="sqlite-net-pcl" />
+		<!-- 音频标签与时长解析：**全项目只有 ATL 一个音频库**（2026-09-23 起；服务端 AudioTagReader /
+		     Mp3DurationReader 与 Scanner 用的都是它）。客户端跟着用，本地曲库与服务端曲库的
+		     标题/歌手/专辑/时长口径才一致 —— 迁移前拿全库 81 个文件对拍过：标题/专辑/年份/封面零差异。 -->
+		<PackageReference Include="z440.atl.core" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\YinYanMusic.Core\YinYanMusic.Core.csproj" />
 	</ItemGroup>
+
+	<ItemGroup>
+	  <MauiImage Include="Resources\Raw\avatars\boy_1.png" />
+	  <MauiImage Include="Resources\Raw\avatars\boy_2.png" />
+	  <MauiImage Include="Resources\Raw\avatars\boy_3.png" />
+	  <MauiImage Include="Resources\Raw\avatars\boy_4.png" />
+	  <MauiImage Include="Resources\Raw\avatars\girl_1.png" />
+	  <MauiImage Include="Resources\Raw\avatars\girl_2.png" />
+	  <MauiImage Include="Resources\Raw\avatars\girl_3.png" />
+	  <MauiImage Include="Resources\Raw\avatars\girl_4.png" />
+	</ItemGroup>
+
+	<Target Name="InvalidateStaleVersionManifests" BeforeTargets="PrepareForBuild">
+		<PropertyGroup>
+			<_AppVersionStamp>$(BaseIntermediateOutputPath)app-version.stamp</_AppVersionStamp>
+			<_AppVersionValue>$(ApplicationDisplayVersion).$(ApplicationVersion)</_AppVersionValue>
+		</PropertyGroup>
+		<ReadLinesFromFile File="$(_AppVersionStamp)" Condition="Exists('$(_AppVersionStamp)')">
+			<Output TaskParameter="Lines" PropertyName="_LastAppVersion" />
+		</ReadLinesFromFile>
+		<ItemGroup Condition="'$(_LastAppVersion)' != '$(_AppVersionValue)'">
+			<_StaleVersionManifest Include="$(BaseIntermediateOutputPath)**\Package.appxmanifest" />
+			<_StaleVersionManifest Include="$(BaseIntermediateOutputPath)**\AndroidManifest.xml" />
+		</ItemGroup>
+		<Delete Files="@(_StaleVersionManifest)" ContinueOnError="true" />
+		<WriteLinesToFile File="$(_AppVersionStamp)" Lines="$(_AppVersionValue)" Overwrite="true"
+			Condition="'$(_LastAppVersion)' != '$(_AppVersionValue)'" />
+	</Target>
 
 </Project>

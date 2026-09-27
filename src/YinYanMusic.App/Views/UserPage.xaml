@@ -23,7 +23,7 @@
                     <Grid Grid.Column="0" HeightRequest="72" WidthRequest="72">
                         <Frame CornerRadius="36" Padding="0" IsClippedToBounds="True" HeightRequest="72" WidthRequest="72"
                                BackgroundColor="{DynamicResource Primary}">
-                            <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="30"
+                            <Label Text="{Binding DisplayName, Converter={StaticResource Initial}}" FontAttributes="Bold" FontSize="30"
                                    TextColor="{DynamicResource OnPrimary}" HorizontalOptions="Center" VerticalOptions="Center"/>
                         </Frame>
                         <Frame CornerRadius="36" Padding="0" IsClippedToBounds="True" HeightRequest="72" WidthRequest="72"

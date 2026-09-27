@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:local="clr-namespace:YinYanMusic.App.Services.LocalLibrary"
+             xmlns:services="clr-namespace:YinYanMusic.App.Services"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             x:Class="YinYanMusic.App.Views.CacheManagePage"
+             x:Name="RootPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}"
+             Title="缓存管理">
+
+    <!-- 单一根容器：ContentPage 只接受一个 Content 子元素（V2.6 在本地音乐页踩过，
+         把浮窗挂在 ContentPage 下会整页布局失效）。 -->
+    <Grid RowDefinitions="*,Auto" Padding="16,12,16,0">
+
+        <!-- 播放器内核：本页可能被未登录用户（登录页 → 服务器设置 → 缓存管理）抵达，
+             那时 MainPage 尚未创建、它的 MediaElement 不存在，播放会静默失败。
+             与本地音乐页同一套做法：本页自带一个 1x1 的 MediaElement 并接管 PlayerService。
+             ⚠️ 必须放在 Grid 内部（游离子元素不会附着视觉树 → 有进度没声音）。 -->
+        <toolkit:MediaElement x:Name="Player" Grid.Row="0" Grid.RowSpan="2"
+                              WidthRequest="1" HeightRequest="1"
+                              HorizontalOptions="End" VerticalOptions="Start"
+                              InputTransparent="True" ShouldAutoPlay="True"/>
+
+        <Grid Grid.Row="0" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10">
+
+            <!-- 顶部：返回 + 标题 + 设置（V2.9 缓存设置从「服务器设置」迁来） -->
+            <Grid Grid.Row="0" ColumnDefinitions="40,*,40" VerticalOptions="Center">
+                <Button Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
+                        BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
+                        Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+                <Label Grid.Column="1" Text="缓存管理" FontSize="20" FontAttributes="Bold"
+                       HorizontalOptions="Center" VerticalOptions="Center"/>
+                <Button Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE8B8;" Command="{Binding OpenSettingsCommand}"
+                        BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
+                        Padding="0" FontSize="22" WidthRequest="40" HeightRequest="40"
+                        HorizontalOptions="End"/>
+            </Grid>
+
+            <!-- 概览 + 各标签页专属操作 -->
+            <VerticalStackLayout Grid.Row="1" Spacing="8">
+                <Label Text="{Binding StatusText}" FontSize="12" TextColor="{StaticResource Gray500}"/>
+
+                <!-- 「缓存中」的排队提示 -->
+                <HorizontalStackLayout Spacing="8" IsVisible="{Binding HasActiveItems}">
+                    <ActivityIndicator IsRunning="{Binding HasActiveItems}" Color="{DynamicResource Accent}"
+                                       WidthRequest="16" HeightRequest="16" VerticalOptions="Center"/>
+                    <Label Text="{Binding DownloadStatus}" FontSize="12" TextColor="{StaticResource Gray500}"
+                           VerticalOptions="Center"/>
+                </HorizontalStackLayout>
+
+                <!-- 离线补报留痕条数（V2.7 记录、V2.11 上报） -->
+                <Label Text="{Binding PendingReportText}" FontSize="11" TextColor="{StaticResource Gray400}"
+                       IsVisible="{Binding PendingReportText, Converter={StaticResource StringNotEmpty}}"/>
+
+                <!-- 播完自动缓存的动态：撞上限被静默跳过多少首（或已被用户关闭） -->
+                <Label Text="{Binding AutoCacheText}" FontSize="11" TextColor="{StaticResource Gray400}"
+                       IsVisible="{Binding AutoCacheText, Converter={StaticResource StringNotEmpty}}"/>
+            </VerticalStackLayout>
+
+            <!-- 三个标签页：缓存中 / 缓存完成 / 缓存历史 -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                <Button Grid.Column="0" Text="{Binding ActiveTabText}" Command="{Binding SelectTabCommand}"
+                        CommandParameter="active" CornerRadius="18" HeightRequest="36" FontSize="13"
+                        Padding="0" BackgroundColor="{StaticResource CardBackground}"
+                        TextColor="{StaticResource Gray600}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsActiveTab}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{DynamicResource Primary}"/>
+                            <Setter Property="TextColor" Value="{DynamicResource OnPrimary}"/>
+                            <Setter Property="FontAttributes" Value="Bold"/>
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Grid.Column="1" Text="{Binding CompletedTabText}" Command="{Binding SelectTabCommand}"
+                        CommandParameter="completed" CornerRadius="18" HeightRequest="36" FontSize="13"
+                        Padding="0" BackgroundColor="{StaticResource CardBackground}"
+                        TextColor="{StaticResource Gray600}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsCompletedTab}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{DynamicResource Primary}"/>
+                            <Setter Property="TextColor" Value="{DynamicResource OnPrimary}"/>
+                            <Setter Property="FontAttributes" Value="Bold"/>
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Grid.Column="2" Text="{Binding HistoryTabText}" Command="{Binding SelectTabCommand}"
+                        CommandParameter="history" CornerRadius="18" HeightRequest="36" FontSize="13"
+                        Padding="0" BackgroundColor="{StaticResource CardBackground}"
+                        TextColor="{StaticResource Gray600}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsHistoryTab}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{DynamicResource Primary}"/>
+                            <Setter Property="TextColor" Value="{DynamicResource OnPrimary}"/>
+                            <Setter Property="FontAttributes" Value="Bold"/>
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </Grid>
+
+            <!-- 内容区：三个列表叠放，按当前标签切换可见性 -->
+            <Grid Grid.Row="3">
+
+                <!-- ① 缓存中：实时进度（与通知栏同源，都来自 CacheDownloadService.ActiveDownloads） -->
+                <CollectionView IsVisible="{Binding IsActiveTab}" ItemsSource="{Binding ActiveItems}"
+                                SelectionMode="None">
+                    <CollectionView.EmptyView>
+                        <VerticalStackLayout Padding="0,40" Spacing="8">
+                            <Label FontFamily="MaterialIcons" Text="&#xE2C4;" FontSize="48"
+                                   TextColor="{StaticResource Gray300}" HorizontalOptions="Center"/>
+                            <Label Text="当前没有正在下载的歌曲" TextColor="{StaticResource Gray500}"
+                                   HorizontalOptions="Center"/>
+                            <Label Text="在歌曲「更多」菜单里选「缓存到本地」，或完整听完一首在线歌会自动缓存"
+                                   FontSize="12" TextColor="{StaticResource Gray300}"
+                                   HorizontalOptions="Center" HorizontalTextAlignment="Center"/>
+                        </VerticalStackLayout>
+                    </CollectionView.EmptyView>
+                    <!-- 样式与「缓存完成」对齐：40 封面 + 标题(15) + 「艺术家 · 专辑」副标题，
+                         只是多一条进度条、右侧把「大小/时间」换成「百分比/已下载」 -->
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="services:ActiveCacheDownload">
+                            <Grid Padding="4,10" ColumnDefinitions="40,*,Auto" ColumnSpacing="10">
+                                <Grid Grid.Column="0" HeightRequest="40" WidthRequest="40" InputTransparent="True">
+                                    <Frame CornerRadius="4" Padding="0" IsClippedToBounds="True"
+                                           HeightRequest="40" WidthRequest="40"
+                                           BackgroundColor="{StaticResource Gray300}">
+                                        <Label FontFamily="MaterialIcons" Text="&#xE405;" FontSize="18"
+                                               TextColor="{StaticResource Gray500}"
+                                               HorizontalOptions="Center" VerticalOptions="Center"/>
+                                    </Frame>
+                                    <Frame CornerRadius="4" Padding="0" IsClippedToBounds="True"
+                                           HeightRequest="40" WidthRequest="40" BackgroundColor="Transparent"
+                                           IsVisible="{Binding CoverUrl, Converter={StaticResource StringNotEmpty}}">
+                                        <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}"
+                                               Aspect="AspectFill"/>
+                                    </Frame>
+                                </Grid>
+
+                                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                    <Label Text="{Binding Title}" FontSize="15" LineBreakMode="TailTruncation"/>
+                                    <Label Text="{Binding SubtitleText}" FontSize="12"
+                                           TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+                                    <ProgressBar Progress="{Binding ProgressValue}" HeightRequest="4" Margin="0,3,0,0"
+                                                 ProgressColor="{DynamicResource Primary}"
+                                                 BackgroundColor="{StaticResource Gray300}"/>
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center"
+                                                     HorizontalOptions="End">
+                                    <Label Text="{Binding PercentText}" FontSize="12" FontAttributes="Bold"
+                                           TextColor="{DynamicResource Accent}" HorizontalTextAlignment="End"/>
+                                    <Label Text="{Binding SizeText}" FontSize="11" TextColor="{StaticResource Gray400}"
+                                           HorizontalTextAlignment="End"/>
+                                </VerticalStackLayout>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <!-- ② 缓存完成：本页专属操作**放标签内容里**（不再挂在概览区外） -->
+                <Grid IsVisible="{Binding IsCompletedTab}" RowDefinitions="Auto,*">
+
+                    <!-- 小按钮行：只在有内容时出现 -->
+                    <HorizontalStackLayout Grid.Row="0" Spacing="8" Margin="0,2,0,8"
+                                           IsVisible="{Binding HasCompletedItems}">
+                        <Button Text="播放全部" Command="{Binding PlayAllCommand}"
+                                CornerRadius="14" HeightRequest="30" FontSize="12" Padding="12,0"
+                                BackgroundColor="{DynamicResource Primary}"
+                                TextColor="{DynamicResource OnPrimary}"/>
+                        <Button Text="清空缓存" Command="{Binding ClearAllCommand}"
+                                CornerRadius="14" HeightRequest="30" FontSize="12" Padding="12,0"
+                                BackgroundColor="{StaticResource CardBackground}"
+                                TextColor="#E5484D"/>
+                    </HorizontalStackLayout>
+
+                    <CollectionView Grid.Row="1" ItemsSource="{Binding Items}" SelectionMode="None">
+                    <CollectionView.EmptyView>
+                        <VerticalStackLayout Padding="0,40" Spacing="8">
+                            <Label FontFamily="MaterialIcons" Text="&#xE405;" FontSize="48"
+                                   TextColor="{StaticResource Gray300}" HorizontalOptions="Center"/>
+                            <Label Text="还没有缓存任何歌曲" TextColor="{StaticResource Gray500}"
+                                   HorizontalOptions="Center"/>
+                            <Label Text="在任意歌曲的「更多」菜单里选「缓存到本地」，下载完就能离线听了"
+                                   FontSize="12" TextColor="{StaticResource Gray300}"
+                                   HorizontalOptions="Center" HorizontalTextAlignment="Center"/>
+                        </VerticalStackLayout>
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="local:CachedSong">
+                            <Grid Padding="4,10" ColumnDefinitions="40,*,Auto,Auto" ColumnSpacing="10">
+                                <Grid.Behaviors>
+                                    <behaviors:PressFeedbackBehavior />
+                                </Grid.Behaviors>
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.PlayCommand}"
+                                        CommandParameter="{Binding .}"/>
+                                </Grid.GestureRecognizers>
+
+                                <Grid Grid.Column="0" HeightRequest="40" WidthRequest="40" InputTransparent="True">
+                                    <Frame CornerRadius="4" Padding="0" IsClippedToBounds="True"
+                                           HeightRequest="40" WidthRequest="40"
+                                           BackgroundColor="{StaticResource Gray300}">
+                                        <Label FontFamily="MaterialIcons" Text="&#xE405;" FontSize="18"
+                                               TextColor="{StaticResource Gray500}"
+                                               HorizontalOptions="Center" VerticalOptions="Center"/>
+                                    </Frame>
+                                    <Frame CornerRadius="4" Padding="0" IsClippedToBounds="True"
+                                           HeightRequest="40" WidthRequest="40" BackgroundColor="Transparent"
+                                           IsVisible="{Binding CoverUrl, Converter={StaticResource StringNotEmpty}}">
+                                        <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}"
+                                               Aspect="AspectFill"/>
+                                    </Frame>
+                                </Grid>
+
+                                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                    <Label Text="{Binding Title}" FontSize="15" LineBreakMode="TailTruncation"/>
+                                    <Label FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation">
+                                        <Label.FormattedText>
+                                            <FormattedString>
+                                                <Span Text="{Binding ArtistsDisplay}"/>
+                                                <Span Text=" · "/>
+                                                <Span Text="{Binding AlbumName}"/>
+                                            </FormattedString>
+                                        </Label.FormattedText>
+                                    </Label>
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center"
+                                                     HorizontalOptions="End">
+                                    <Label Text="{Binding SizeText}" FontSize="12" TextColor="{StaticResource Gray500}"
+                                           HorizontalTextAlignment="End"/>
+                                    <Label Text="{Binding CachedAtText}" FontSize="11" TextColor="{StaticResource Gray400}"
+                                           HorizontalTextAlignment="End"/>
+                                </VerticalStackLayout>
+
+                                <Button Grid.Column="3" Style="{StaticResource ListItemIconButton}"
+                                        Text="&#xE5D4;" TextColor="{StaticResource Gray500}"
+                                        Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.ShowMenuCommand}"
+                                        CommandParameter="{Binding .}">
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroupList>
+                                            <VisualStateGroup x:Name="CommonStates">
+                                                <VisualState x:Name="Normal" />
+                                                <VisualState x:Name="Pressed">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="Opacity" Value="0.45" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                            </VisualStateGroup>
+                                        </VisualStateGroupList>
+                                    </VisualStateManager.VisualStateGroups>
+                                </Button>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </Grid>
+
+                <!-- ③ 缓存历史：同样把「清空历史」收进本页内容里
+                     （顺带修掉"该按钮在其它标签页也会显示"的不一致） -->
+                <Grid IsVisible="{Binding IsHistoryTab}" RowDefinitions="Auto,*">
+                    <!-- 小按钮行：只在有历史时出现 -->
+                    <HorizontalStackLayout Grid.Row="0" Spacing="8" Margin="0,2,0,8"
+                                           IsVisible="{Binding HasHistoryItems}">
+                        <Button Text="清空历史" Command="{Binding ClearHistoryCommand}"
+                                CornerRadius="14" HeightRequest="30" FontSize="12" Padding="12,0"
+                                BackgroundColor="{StaticResource CardBackground}"
+                                TextColor="#E5484D"/>
+                    </HorizontalStackLayout>
+
+                    <CollectionView Grid.Row="1" ItemsSource="{Binding HistoryItems}" SelectionMode="None">
+                    <CollectionView.EmptyView>
+                        <VerticalStackLayout Padding="0,40" Spacing="8">
+                            <Label FontFamily="MaterialIcons" Text="&#xE8B6;" FontSize="48"
+                                   TextColor="{StaticResource Gray300}" HorizontalOptions="Center"/>
+                            <Label Text="还没有缓存历史" TextColor="{StaticResource Gray500}"
+                                   HorizontalOptions="Center"/>
+                        </VerticalStackLayout>
+                    </CollectionView.EmptyView>
+                    <!-- 同样对齐「缓存完成」：40 封面 + 标题(15) + 副标题（艺术家 · 时间），
+                         右侧换成事件标签（已完成/下载失败…）+ 体积 -->
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="local:CacheHistoryEntry">
+                            <Grid Padding="4,10" ColumnDefinitions="40,*,Auto" ColumnSpacing="10">
+                                <Grid Grid.Column="0" HeightRequest="40" WidthRequest="40" InputTransparent="True">
+                                    <Frame CornerRadius="4" Padding="0" IsClippedToBounds="True"
+                                           HeightRequest="40" WidthRequest="40"
+                                           BackgroundColor="{StaticResource Gray300}">
+                                        <Label FontFamily="MaterialIcons" Text="&#xE405;" FontSize="18"
+                                               TextColor="{StaticResource Gray500}"
+                                               HorizontalOptions="Center" VerticalOptions="Center"/>
+                                    </Frame>
+                                    <Frame CornerRadius="4" Padding="0" IsClippedToBounds="True"
+                                           HeightRequest="40" WidthRequest="40" BackgroundColor="Transparent"
+                                           IsVisible="{Binding CoverUrl, Converter={StaticResource StringNotEmpty}}">
+                                        <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}"
+                                               Aspect="AspectFill"/>
+                                    </Frame>
+                                </Grid>
+
+                                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                    <Label Text="{Binding Title}" FontSize="15" LineBreakMode="TailTruncation"/>
+                                    <Label Text="{Binding SubtitleText}" FontSize="12"
+                                           TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Grid.Column="2" Spacing="2" HorizontalOptions="End"
+                                                     VerticalOptions="Center">
+                                    <Label Text="{Binding EventText}" FontSize="12" FontAttributes="Bold"
+                                           TextColor="{Binding EventColor}" HorizontalTextAlignment="End"/>
+                                    <Label Text="{Binding SizeText}" FontSize="11"
+                                           TextColor="{StaticResource Gray400}" HorizontalTextAlignment="End"
+                                           IsVisible="{Binding SizeText, Converter={StaticResource StringNotEmpty}}"/>
+                                </VerticalStackLayout>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <ActivityIndicator Grid.Row="1" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                           Color="{DynamicResource Accent}" VerticalOptions="Start"/>
+    </Grid>
+</ContentPage>

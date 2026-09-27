@@ -14,6 +14,7 @@
 #     -e Jwt__ExpiryMinutes=480 \
 #     -e Media__BaseUrl="" \
 #     -e Media__MusicDirectory="/music" \
+#     -e Media__ScanIntervalMinutes=60 \
 #     -e Auth__RequireBootstrapCode=true \
 #     -e ASPNETCORE_ENVIRONMENT=Production \
 #     -e ASPNETCORE_URLS=http://0.0.0.0:5116 \

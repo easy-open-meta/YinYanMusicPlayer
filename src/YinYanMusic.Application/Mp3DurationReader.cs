@@ -4,8 +4,8 @@ namespace YinYanMusic.Application;
 
 /// <summary>
 /// 音频时长探测：统一使用 ATL（z440.atl.core）从音频数据逐帧解析，返回 double 秒，失败返回 0。
-/// 注意：不要引入第二套时长计算方式（如 TagLib 元数据估算），避免时长口径再次分叉
-/// （历史教训：TagLib 估算 + Math.Round 导致列表比播放页多显示 1 秒）。
+/// 注意：不要引入第二套时长计算方式（比如拿标签里的时长字段估算），避免时长口径再次分叉
+/// （历史教训：早期用 TagLib 的估算时长 + Math.Round，导致列表比播放页多显示 1 秒）。
 /// </summary>
 public static class Mp3DurationReader
 {

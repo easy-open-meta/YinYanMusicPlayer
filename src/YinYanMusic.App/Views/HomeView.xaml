@@ -30,6 +30,43 @@
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Spacing="18" Padding="16,0,16,12">
 
+                <!-- V2.10 断点续播：上次听到哪。数据来自服务端，所以换台设备也能接着上一台的位置。
+                     正在播同一首时 VM 会把 HasResume 置 false（入口和当下状态重复，卡片反而碍事）。
+                     点击动效与手势必须挂在同一个元素上（Border 本身），见音乐专区色卡那段注释。 -->
+                <Border Style="{StaticResource SurfaceCard}" Padding="12" IsVisible="{Binding HasResume}">
+                    <Border.Behaviors>
+                        <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.8"/>
+                    </Border.Behaviors>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ResumeCommand}"/>
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="52,*,Auto" ColumnSpacing="12">
+                        <!-- 封面：与账号信息页的头像同一套写法（Border 自带圆角裁切，不用再设 IsClippedToBounds） -->
+                        <Border Grid.Column="0" StrokeThickness="0" StrokeShape="RoundRectangle 10"
+                                HeightRequest="52" WidthRequest="52"
+                                BackgroundColor="{StaticResource PrimarySoft}">
+                            <Image Source="{Binding ResumeCoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                            <Label Text="继续播放" FontSize="12" TextColor="{DynamicResource Accent}"/>
+                            <Label Text="{Binding ResumeTitle}" FontSize="15" FontAttributes="Bold"
+                                   LineBreakMode="TailTruncation" MaxLines="1"/>
+                            <Label FontSize="12" TextColor="{StaticResource Gray500}"
+                                   LineBreakMode="TailTruncation" MaxLines="1">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="{Binding ResumeSubtitle}"/>
+                                        <Span Text=" "/>
+                                        <Span Text="{Binding ResumeSeconds, Converter={StaticResource SecondsToTime}}"/>
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                        </VerticalStackLayout>
+                        <Label Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE037;" FontSize="28"
+                               TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+                    </Grid>
+                </Border>
+
                 <!-- 音乐专区：数据驱动（Categories 表的 Slogan/ColorHex/IconGlyph），点卡片进分区详情页 -->
                 <Grid ColumnDefinitions="*,Auto" Padding="4,0,4,0">
                     <Label Text="音乐专区" FontSize="20" FontAttributes="Bold"/>
@@ -96,6 +133,79 @@
                     </HorizontalStackLayout>
                 </ScrollView>
 
+                <!-- 推荐歌单专区（V2.12）：排序由服务端规则算（热播 / 高分收藏 / 最新上架 / 猜你喜欢），
+                     后台可对单个歌单人工置顶、加权、下线。场景标签沿用「歌手详情页」那套
+                     按钮 + DataTrigger 高亮写法，不另创一套选中态样式。
+                     注意选中态是绑在 RecommendSceneTab.IsSelected 上的 —— MAUI 的 DataTrigger.Value
+                     只能写字面量，不能绑定到 VM 的 SelectedRecommendTab 去比较，所以状态得放在标签对象自己身上。 -->
+                <Grid ColumnDefinitions="*,Auto" Padding="4,0,4,0">
+                    <Label Text="推荐歌单" FontSize="20" FontAttributes="Bold"/>
+                    <Label Grid.Column="1" Text="运营精选" FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                </Grid>
+
+                <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Padding="4,0">
+                    <HorizontalStackLayout BindableLayout.ItemsSource="{Binding RecommendTabs}" Spacing="6">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:RecommendSceneTab">
+                                <Button Text="{Binding Name}"
+                                        Command="{Binding Source={x:Reference RootView}, Path=BindingContext.SelectRecommendTabCommand}"
+                                        CommandParameter="{Binding .}"
+                                        CornerRadius="17" HeightRequest="34" FontSize="13" Padding="14,0"
+                                        BackgroundColor="{StaticResource CardBackground}"
+                                        TextColor="{StaticResource Gray600}">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource Primary}"/>
+                                            <Setter Property="TextColor" Value="{DynamicResource OnPrimary}"/>
+                                            <Setter Property="FontAttributes" Value="Bold"/>
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </HorizontalStackLayout>
+                </ScrollView>
+
+                <!-- 推荐歌单卡片：与「精选歌单」同一套 140 竖版卡模板，点进歌单详情页；
+                     整张列表的入队由歌单详情页负责（全局约束 1.3 第 10 条：播放入口必须带整张列表，
+                     队列长度为 1 时"下一首"等于自己）。 -->
+                <CollectionView ItemsSource="{Binding RecommendedPlaylists}" SelectionMode="None" HeightRequest="200">
+                    <!-- 空态：加载中显示转圈，加载完仍为空才提示"暂无推荐内容" —— 否则每次切标签
+                         都会先闪一下"暂无推荐内容"，看起来像出错 -->
+                    <CollectionView.EmptyView>
+                        <VerticalStackLayout Padding="0,40" Spacing="8">
+                            <ActivityIndicator IsRunning="{Binding IsLoadingRecommend}" IsVisible="{Binding IsLoadingRecommend}"
+                                               Color="{DynamicResource Accent}" HorizontalOptions="Center"/>
+                            <Label Text="暂无推荐内容" FontSize="13" TextColor="{StaticResource Gray500}"
+                                   IsVisible="{Binding IsLoadingRecommend, Converter={StaticResource InverseBool}}"
+                                   HorizontalOptions="Center"/>
+                        </VerticalStackLayout>
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Horizontal" ItemSpacing="12"/>
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="dtos:PlaylistDto">
+                            <Grid WidthRequest="140" RowDefinitions="140,40">
+                                <Grid.Behaviors>
+                                    <behaviors:PressFeedbackBehavior PressedScale="0.95" PressedOpacity="0.7"/>
+                                </Grid.Behaviors>
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference RootView}, Path=BindingContext.OpenPlaylistCommand}"
+                                        CommandParameter="{Binding .}"/>
+                                </Grid.GestureRecognizers>
+                                <Frame Grid.Row="0" CornerRadius="12" Padding="0" IsClippedToBounds="True"
+                                       BackgroundColor="{DynamicResource Primary}">
+                                    <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill" HeightRequest="140"/>
+                                </Frame>
+                                <Label Grid.Row="1" Text="{Binding Name}" FontSize="13" LineBreakMode="TailTruncation"
+                                       VerticalOptions="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
                 <!-- 热门歌曲 -->
                 <Label Text="热门歌曲" FontSize="20" FontAttributes="Bold"/>
                 <CollectionView ItemsSource="{Binding HotSongs}" SelectionMode="None">
@@ -131,7 +241,7 @@
                                         <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE838;" FontSize="12" TextColor="#FFD700" IsVisible="{Binding IsLiked}" VerticalOptions="Center"/>
                                         <Label Grid.Column="1" Text="{Binding Title}" FontSize="15" LineBreakMode="TailTruncation"/>
                                     </Grid>
-                                    <Label Text="{Binding ArtistName}" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                                    <Label Text="{Binding ArtistsDisplay}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
                                 </VerticalStackLayout>
                                 <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
                                        FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>

@@ -53,7 +53,15 @@ public class MeService(MusicDbContext db, AudioMetadataService metadata) : IMeSe
             .Where(f => f.UserId == userId)
             .OrderByDescending(f => f.CreatedAt)
             .Select(f => f.Artist)
-            .Select(a => new ArtistDto(a.Id, a.Name, a.Region, a.Kind, a.AvatarUrl, a.Bio, 0, 0, 0))
+            // 头像兜底：没设自定义头像时，用该歌手第一首**有封面**的歌的封面当画像 ——
+            // 与「歌手详情页」的既有约定一致（那边由客户端取 Songs[0].CoverUrl 兜底）。
+            // 只填进返回的 DTO，**不动库里的 AvatarUrl**（后台看到"未设置"的语义不变）。
+            // 歌手这层几乎没头像数据（实测 14 个全为空），不兜底列表里就只剩占位图标。
+            .Select(a => new ArtistDto(
+                a.Id, a.Name, a.Region, a.Kind,
+                a.AvatarUrl ?? db.Songs.Where(s => s.ArtistId == a.Id && s.CoverUrl != null)
+                                       .OrderBy(s => s.Id).Select(s => s.CoverUrl).FirstOrDefault(),
+                a.Bio, 0, 0, 0))
             .ToListAsync();
     }
 

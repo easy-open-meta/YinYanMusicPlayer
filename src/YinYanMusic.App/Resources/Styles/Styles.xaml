@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <ResourceDictionary 
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
@@ -350,10 +350,14 @@
                             <Setter Property="ThumbColor" Value="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}" />
                         </VisualState.Setters>
                     </VisualState>
+                    <!-- On 态轨道用主题主色（不是 PrimarySoft）：PrimarySoft 太浅，白卡片上
+                         看不出"开"（红色主题下就是一片浅粉白）；且页面初始 IsToggled=true 时
+                         VSM 直接落在 On 态，这个色相就是"重进页面后"的观感，必须与交互时一致。
+                         滑块保持 OnPrimary（主色上白滑块最清晰，纯白主题下是深滑块）。 -->
                     <VisualState x:Name="On">
                         <VisualState.Setters>
-                            <Setter Property="OnColor" Value="{DynamicResource PrimarySoft}" />
-                            <Setter Property="ThumbColor" Value="{DynamicResource Accent}" />
+                            <Setter Property="OnColor" Value="{DynamicResource Primary}" />
+                            <Setter Property="ThumbColor" Value="{DynamicResource OnPrimary}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState x:Name="Off">
@@ -502,8 +506,8 @@
     </Style>
 
     <!-- 搜索框：整条圆角胶囊。
-         投影比基类更轻（3,6 / 10 / 0.28 → 2,3 / 7 / 0.14）：扁条形的搜索框投影本来
-         就显眼，原分量在它下面拖出一条明显的灰边。 -->
+         ⚠️ 已被 SurfaceSearch 取代（白底 + 发丝描边 + 居中柔和投影，见下方）。
+         保留此定义是为兼容尚未迁移的旧引用；新代码请用 SurfaceSearch。 -->
     <Style x:Key="SurfacePill" TargetType="Border" BasedOn="{StaticResource ShadowSurface}">
         <Setter Property="StrokeShape" Value="RoundRectangle 24" />
         <Setter Property="BackgroundColor" Value="{StaticResource SurfaceLight}" />
@@ -512,6 +516,124 @@
                 <Shadow Brush="#000000" Offset="2,3" Radius="7" Opacity="0.14" />
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- 搜索框：统一样式（搜索页 + 歌单详情共用同一份，避免两处各写一套再次漂移）。
+         现代化取向的三点改动：
+         1) 白底 + 1dp 发丝描边：页面底色是 #F6F6F9 浅灰，搜索框若继续用 SurfaceLight(#F1F1F1)
+            几乎与背景糊在一起、只能靠投影"浮"出来。改白底后靠明度差就立得住，
+            描边负责在纯白区域（如卡片上）仍能勾勒出边界。
+         2) 投影由硬改软（2,3 / r7 / 0.14 → 0,6 / r16 / 0.10）：偏移归零 + 大半径低透明度
+            是当下 elevation 的做法；旧的固定右下偏移属于更早的 Material 观感，扁条控件上
+            会拖出一条明显的灰边。
+         3) 胶囊半径 24 → 26（贴合 48dp 高度的完全圆角），配更大的内边距，视觉更舒展。
+         ⚠️ 底色/描边用 DynamicResource：CardBackground / CardBorder 定义在 App.xaml 的
+         内联字典里，而它排在 Styles.xaml 之后合并 —— 用 StaticResource 会在解析期直接
+         抛 XamlParseException（同 Colors.xaml 里那段注释描述的顺序陷阱）。 -->
+    <Style x:Key="SurfaceSearch" TargetType="Border" BasedOn="{StaticResource ShadowSurface}">
+        <Setter Property="StrokeShape" Value="RoundRectangle 26" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource CardBackground}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{DynamicResource CardBorder}" />
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="#000000" Offset="0,6" Radius="16" Opacity="0.10" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 搜索框内的「清除」按钮：小圆形填充块 + 白色叉号。
+         裸叉号（无底）在浅色输入框里存在感太弱、点击热区也偏小；
+         填充圆点既明确"这里能点"，又把热区撑到 24dp 的可用尺寸。 -->
+    <Style x:Key="SearchClearButton" TargetType="Button">
+        <Setter Property="FontFamily" Value="MaterialIcons" />
+        <Setter Property="Text" Value="&#xE5CD;" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="TextColor" Value="{DynamicResource CardBackground}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Gray300}" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="WidthRequest" Value="24" />
+        <Setter Property="HeightRequest" Value="24" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="MinimumWidthRequest" Value="0" />
+        <Setter Property="MinimumHeightRequest" Value="0" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <!-- 搜索框内的放大镜：统一字号与色值，避免两处各写一个值 -->
+    <Style x:Key="SearchGlyphLabel" TargetType="Label">
+        <Setter Property="FontFamily" Value="MaterialIcons" />
+        <Setter Property="Text" Value="&#xE8B6;" />
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="TextColor" Value="{StaticResource Gray500}" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <!-- 搜索框内的输入区：统一字号与占位色 -->
+    <Style x:Key="SearchEntry" TargetType="Entry">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="PlaceholderColor" Value="{StaticResource Gray400}" />
+        <Setter Property="TextColor" Value="{StaticResource Gray900}" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <!-- 搜索开关按钮（歌单详情的放大镜 / 取消）：与搜索框同一套白底 + 发丝描边。
+         刻意不给 Button 设 Shadow —— 本项目此前没有 Button 投影的先例，而 Border 的
+         投影全项目都在用、渲染有保障；两者并排时靠「白底 + 同色描边 + 同圆角」已属
+         同一视觉族，投影的细微差别在 40dp 的小控件上看不出来。 -->
+    <!-- 列表项内的图标按钮（如 ⋮ 更多）。
+         ⚠️ 关于"按下时其他行的同类按钮跟着变亮"：
+         根因是全局隐式 Button 样式在 Setter 里定义了
+         VisualStateManager.VisualStateGroups —— Style Setter 里的**对象值是共享实例**，
+         所有按钮拿到的是同一个 VisualStateGroupList，于是某一行的按钮进入 Pressed 时，
+         其他行的按钮也跟着进入 Pressed（一起变淡/变亮）。
+
+         ⚠️ 只写一个不带 BasedOn 的显式 Style **解决不了**：MAUI 的 MergedStyle 会把
+         显式样式与隐式样式合并（隐式样式自动成为 BasedOn），那个共享的 VSM 仍会进来。
+         所以这里必须**显式覆盖 VSM**，给这个样式一份自己的实例，切断共享。
+         同时按下反馈统一交给外层的 PressFeedbackBehavior，按钮自身不再做状态视觉。 -->
+    <Style x:Key="ListItemIconButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="FontFamily" Value="MaterialIcons" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="CornerRadius" Value="15" />
+        <Setter Property="WidthRequest" Value="30" />
+        <Setter Property="HeightRequest" Value="30" />
+        <Setter Property="MinimumWidthRequest" Value="0" />
+        <Setter Property="MinimumHeightRequest" Value="0" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <!-- 自己的 VSM 实例：只有一个 Normal 态，不做任何视觉变化。
+             这样既切断了与隐式样式的共享，也让按下时按钮自身保持稳定。 -->
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SearchToggleButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{DynamicResource CardBackground}" />
+        <Setter Property="TextColor" Value="{DynamicResource Accent}" />
+        <Setter Property="BorderColor" Value="{DynamicResource CardBorder}" />
+        <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="CornerRadius" Value="26" />
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="MinimumWidthRequest" Value="0" />
+        <Setter Property="MinimumHeightRequest" Value="0" />
+        <Setter Property="VerticalOptions" Value="Center" />
     </Style>
 
     <!-- 小标签（搜索记录 chip）：**刻意不做投影**。

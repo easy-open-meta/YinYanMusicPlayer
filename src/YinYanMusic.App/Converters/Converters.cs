@@ -1,4 +1,5 @@
 using System.Globalization;
+using YinYanMusic.Core.Dtos;
 using YinYanMusic.App.Services;
 
 namespace YinYanMusic.App.Converters;
@@ -58,13 +59,13 @@ public class CollectedTextConverter : IValueConverter
 
 public class AbsoluteUrlConverter : IValueConverter
 {
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        var url = ApiConfig.Absolute(value as string);
-        if (string.IsNullOrEmpty(url)) return null;
-        try { return ImageSource.FromUri(new Uri(url)); }
-        catch { return null; }
-    }
+    /// <summary>
+    /// 统一委托给 <see cref="ImageSourceFactory"/> —— 判断逻辑只此一份。
+    /// 历史上 XAML 转换器与页面代码后置各写了一套，导致"列表封面能显示、
+    /// 长按预览却空白"这类不一致（本地曲库上线后真机踩到）。
+    /// </summary>
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        ImageSourceFactory.From(value as string);
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
@@ -78,6 +79,49 @@ public class NullToFallbackConverter : IValueConverter
     {
         if (value is string s && !string.IsNullOrWhiteSpace(s)) return s;
         return parameter as string ?? Fallback;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// 专辑副标题：专辑名下方那一行 —— 「2024 年 · 1 首」；**没有发行日期就只显示「1 首」**。
+/// <para>
+/// ⚠️ 别用 <c>StringFormat='{0:yyyy} 年'</c> 拼这一段：值为 null 时格式串里的字面量照旧输出，
+/// 界面上会留一个孤零零的「 年」—— 而库里没有发行日期的专辑并不少。这里两段（日期 / 首数）
+/// 任何一段缺失都要能优雅退化，用转换器最省事。
+/// </para>
+/// </summary>
+public class AlbumSubtitleConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is AlbumDto album
+            ? (album.ReleaseDate is { } d
+                ? $"{d.Year} 年 · {album.TrackCount} 首"
+                : $"{album.TrackCount} 首")
+            : string.Empty;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// 取名字的**首个字符**，给"没有头像时"的字母头像用（用户取昵称、歌手取艺名）。
+/// <para>
+/// 用 <see cref="StringInfo.GetNextTextElement(string)"/> 而不是 <c>s[0]</c>：
+/// 后者会把代理对（emoji、部分生僻字）劈成半个字符，界面上就是一个乱码方块。
+/// 中日文首字原样返回；拉丁字母转大写，视觉上更像头像。
+/// </para>
+/// </summary>
+public class InitialConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not string s || string.IsNullOrWhiteSpace(s)) return "?";
+
+        var first = StringInfo.GetNextTextElement(s.Trim());
+        return first.ToUpper(culture);
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>

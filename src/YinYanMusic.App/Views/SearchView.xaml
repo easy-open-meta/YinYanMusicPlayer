@@ -22,20 +22,18 @@
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Spacing="18" Padding="16,0,16,12">
 
-                <!-- 搜索框：圆角胶囊 + 朝右下投影。
-                     Margin 的右 13dp 是投影落点（Offset.X 3 + Radius 10），必须留在
-                     元素自己身上（父容器 Padding 无效）；左 0 保持与下方标题左对齐。 -->
-                <Border Style="{StaticResource SurfacePill}" Padding="12,0" HeightRequest="48" Margin="0,0,13,0">
-                    <Grid ColumnDefinitions="24,8,*,8,24" VerticalOptions="Center">
-                        <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE8B6;" FontSize="20"
-                               TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
-                        <Entry Grid.Column="2" Placeholder="搜索歌曲、歌手、专辑、用户" Text="{Binding SearchText}" ReturnType="Search"
-                               ReturnCommand="{Binding SearchCommand}" BackgroundColor="Transparent" FontSize="15"/>
-                        <Button Grid.Column="4" FontFamily="MaterialIcons" Text="&#xE5CD;" FontSize="18"
-                                TextColor="{StaticResource Gray500}" BackgroundColor="Transparent"
-                                Padding="0" BorderWidth="0" WidthRequest="24" HeightRequest="24"
-                                MinimumWidthRequest="0" IsVisible="{Binding CanClearSearch}"
-                                Command="{Binding ClearSearchCommand}" VerticalOptions="Center"/>
+                <!-- 搜索框：统一样式见 Styles.xaml 的 SurfaceSearch（白底 + 发丝描边 + 柔和投影）。
+                     投影改为 0,6 居中扩散后，落点需求从 13dp 降到 10dp（Offset.X 0 + Radius 16
+                     只在下方需要留白，右 10dp 足够）；左 0 保持与下方标题左对齐。 -->
+                <Border Style="{StaticResource SurfaceSearch}" Padding="16,0" HeightRequest="48" Margin="0,0,10,0">
+                    <Grid ColumnDefinitions="24,10,*,8,24" VerticalOptions="Center">
+                        <Label Grid.Column="0" Style="{StaticResource SearchGlyphLabel}"/>
+                        <Entry Grid.Column="2" Style="{StaticResource SearchEntry}" Placeholder="搜索歌曲、歌手、专辑、用户"
+                               Text="{Binding SearchText}" ReturnType="Search"
+                               ReturnCommand="{Binding SearchCommand}"/>
+                        <Button Grid.Column="4" Style="{StaticResource SearchClearButton}"
+                                IsVisible="{Binding CanClearSearch}"
+                                Command="{Binding ClearSearchCommand}"/>
                     </Grid>
                 </Border>
 
@@ -131,7 +129,7 @@
                                     <Grid Grid.Column="0" HeightRequest="52" WidthRequest="52">
                                         <Frame CornerRadius="26" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
                                                BackgroundColor="{DynamicResource PrimarySoft}">
-                                            <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="22"
+                                            <Label Text="{Binding DisplayName, Converter={StaticResource Initial}}" FontAttributes="Bold" FontSize="22"
                                                    TextColor="{DynamicResource Accent}" HorizontalOptions="Center" VerticalOptions="Center"/>
                                         </Frame>
                                         <Frame CornerRadius="26" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
@@ -191,7 +189,7 @@
                                             <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE838;" FontSize="12" TextColor="#FFD700" IsVisible="{Binding IsLiked}" VerticalOptions="Center"/>
                                             <Label Grid.Column="1" Text="{Binding Title}" FontSize="15" LineBreakMode="TailTruncation"/>
                                         </Grid>
-                                        <Label Text="{Binding ArtistName}" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                                        <Label Text="{Binding ArtistsDisplay}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
                                     </VerticalStackLayout>
                                     <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
                                            FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
@@ -242,7 +240,7 @@
                                             <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE838;" FontSize="12" TextColor="#FFD700" IsVisible="{Binding IsLiked}" VerticalOptions="Center"/>
                                             <Label Grid.Column="1" Text="{Binding Title}" FontSize="15" LineBreakMode="TailTruncation"/>
                                         </Grid>
-                                        <Label Text="{Binding ArtistName}" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                                        <Label Text="{Binding ArtistsDisplay}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
                                     </VerticalStackLayout>
                                     <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
                                            FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>

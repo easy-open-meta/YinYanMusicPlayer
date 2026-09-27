@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:dtos="clr-namespace:YinYanMusic.Core.Dtos;assembly=YinYanMusic.Core"
@@ -23,12 +23,16 @@
             <VerticalStackLayout Spacing="18" Padding="16,0,16,12">
 
                 <!-- 个人信息卡：朝右下的投影。右 13dp 的 Margin 是投影落点
-                     （Shadow Offset.X 3 + Radius 10），必须留在元素自己身上。 -->
-                <Border Style="{StaticResource SurfaceCard}" Padding="16" Margin="0,0,13,0">
+                     （Shadow Offset.X 3 + Radius 10），必须留在元素自己身上。
+                     V2.5：整卡可点，进入账号信息编辑页（改昵称/性别/简介/头像）。 -->
+                <Border Style="{StaticResource SurfaceCard}" Padding="16" Margin="13,0,13,0">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenAccountCommand}"/>
+                    </Border.GestureRecognizers>
                     <VerticalStackLayout Spacing="14">
-                        <HorizontalStackLayout Spacing="14">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
                             <!-- 头像：无头像时回退到占位图标 -->
-                            <Grid HeightRequest="64" WidthRequest="64">
+                            <Grid Grid.Column="0" HeightRequest="64" WidthRequest="64">
                                 <Frame CornerRadius="32" Padding="0" IsClippedToBounds="True" HeightRequest="64" WidthRequest="64"
                                        BackgroundColor="{DynamicResource Primary}" HorizontalOptions="Center" VerticalOptions="Center">
                                     <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="28" TextColor="{DynamicResource OnPrimary}" HorizontalOptions="Center" VerticalOptions="Center"/>
@@ -39,12 +43,29 @@
                                     <Image Source="{Binding AvatarUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
                                 </Frame>
                             </Grid>
-                            <VerticalStackLayout Spacing="4" VerticalOptions="Center">
+                            <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
                                 <Label Text="{Binding DisplayName}" FontSize="20" FontAttributes="Bold" TextColor="{StaticResource Gray500}"/>
                                 <Label Text="{Binding Gender}" FontSize="13" TextColor="{StaticResource Gray500}"
                                        IsVisible="{Binding Gender, Converter={StaticResource StringNotEmpty}}"/>
+                                <!-- 个人介绍（V2.5 调整）：最多显示 25 字，超出时右侧出现可点的 ">"，
+                                     点击用现有 Dialog 弹全文。整卡点击仍进账号页，所以这里的
+                                     TapGestureRecognizer 只挂在箭头那一小块上（见下）。 -->
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" IsVisible="{Binding HasBio}">
+                                    <Label Grid.Column="0" Text="{Binding BioPreview}" FontSize="12"
+                                           TextColor="{StaticResource Gray400}" LineBreakMode="TailTruncation" MaxLines="1"/>
+                                    <Label Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE5CC;" FontSize="16"
+                                           TextColor="{StaticResource Gray400}" VerticalOptions="Center"
+                                           IsVisible="{Binding BioOverflows}">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding Source={x:Reference RootView}, Path=BindingContext.ShowFullBioCommand}"/>
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Grid>
                             </VerticalStackLayout>
-                        </HorizontalStackLayout>
+                            <!-- 可点提示：右侧箭头，暗示这张卡能进去 -->
+                            <Label Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE5CC;" FontSize="20"
+                                   TextColor="{StaticResource Gray400}" VerticalOptions="Center"/>
+                        </Grid>
 
                         <!-- 统计：关注 / 歌单 / 粉丝（三列均可点击进入对应列表页） -->
                         <Grid ColumnDefinitions="*,*,*" Padding="0,10,0,0">
@@ -116,6 +137,49 @@
                             </VerticalStackLayout>
                         </Grid>
                     </VerticalStackLayout>
+                </Border>
+
+                <!-- 本地音乐（V2.9 从抽屉迁来）：个人卡下方、我的歌单上方。
+                     与安全中心同一套「图标 + 标题 + 右箭头」语言；标题后括号显示本地曲库总数。
+                     Margin 与个人卡一致（13dp 投影落点），两张卡左右边缘对齐。 -->
+                <Border Style="{StaticResource SurfaceCard}" Padding="6" Margin="13,0,13,0">
+                    <Grid Padding="16,14" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                        <Grid.Behaviors>
+                            <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                        </Grid.Behaviors>
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenLocalMusicCommand}"/>
+                        </Grid.GestureRecognizers>
+                        <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE405;" FontSize="22"
+                               TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+                        <Label Grid.Column="1" Text="{Binding LocalMusicTitle}" FontSize="16" VerticalOptions="Center"/>
+                        <Label Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE5CC;" FontSize="20"
+                               TextColor="{StaticResource Gray400}" VerticalOptions="Center"/>
+                    </Grid>
+                </Border>
+
+                <!-- 消息通知（V2.15）：铃铛入口 + 未读角标。与本地音乐同一套卡片语言。 -->
+                <Border Style="{StaticResource SurfaceCard}" Padding="6" Margin="13,0,13,0">
+                    <Grid Padding="16,14" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="14">
+                        <Grid.Behaviors>
+                            <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                        </Grid.Behaviors>
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenNotificationsCommand}"/>
+                        </Grid.GestureRecognizers>
+                        <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE7F4;" FontSize="22"
+                               TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+                        <Label Grid.Column="1" Text="消息通知" FontSize="16" VerticalOptions="Center"/>
+                        <!-- 未读角标：0 时整块隐藏（UnreadBadgeText 已把 >9 收成 9+） -->
+                        <Frame Grid.Column="2" BackgroundColor="{DynamicResource Accent}" CornerRadius="10"
+                               Padding="8,2" HasShadow="False" BorderColor="Transparent"
+                               VerticalOptions="Center" IsVisible="{Binding UnreadBadgeVisible}">
+                            <Label Text="{Binding UnreadBadgeText}" FontSize="12" FontAttributes="Bold"
+                                   TextColor="White" VerticalOptions="Center"/>
+                        </Frame>
+                        <Label Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE5CC;" FontSize="20"
+                               TextColor="{StaticResource Gray400}" VerticalOptions="Center"/>
+                    </Grid>
                 </Border>
 
                 <!-- 我的歌单 -->

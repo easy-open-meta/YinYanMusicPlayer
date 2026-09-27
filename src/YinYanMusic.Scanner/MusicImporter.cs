@@ -37,7 +37,7 @@ public sealed class ImportSummary
 }
 
 /// <summary>
-/// 扫描本地音乐目录，用 TagLib 解析元数据后写库。
+/// 扫描本地音乐目录，用 ATL 解析标签与时长后写库。
 /// URL 约定与 Api 端保持一致：音频 <c>/media/audio/&lt;相对路径&gt;</c>、封面 <c>/media/image/song-{id}{ext}</c>
 /// （见 YinYanMusic.Application 的 AudioMetadataService / MediaService）。
 /// </summary>
@@ -63,7 +63,7 @@ public sealed class MusicImporter(MusicDbContext db, ImportSettings settings)
 
     private sealed record Metadata(
         string Title,
-        string Artist,
+        IReadOnlyList<string> Artists,
         string? Album,
         int? Year,
         int DurationSeconds,
@@ -183,7 +183,9 @@ public sealed class MusicImporter(MusicDbContext db, ImportSettings settings)
         meta = meta with { DurationSeconds = atlSeconds };
 
         var lyricUrl = BuildLyricUrl(root, file);
-        var artist = GetOrCreateArtist(meta.Artist);
+        // 联合创作：标签里的歌手字段可能是多值（已按 ; / 、拆好），逐个建/找，主歌手取第一个
+        var allArtists = meta.Artists.Select(GetOrCreateArtist).ToList();
+        var artist = allArtists[0];
         var album = meta.Album is null ? null : GetOrCreateAlbum(artist, meta.Album, meta.Year);
 
         if (existing is not null)
@@ -193,8 +195,9 @@ public sealed class MusicImporter(MusicDbContext db, ImportSettings settings)
             existing.Album = album;
             existing.DurationSeconds = meta.DurationSeconds;
             if (lyricUrl is not null) existing.LyricUrl = lyricUrl;
+            SyncArtistLinks(existing, allArtists);   // --force 重扫 = 按文件重建，歌手关联一并重建
             summary.Updated++;
-            Console.WriteLine($"  [更新] {meta.Title} - {artist.Name}");
+            Console.WriteLine($"  [更新] {meta.Title} - {string.Join(" / ", allArtists.Select(a => a.Name))}");
             AddPendingCover(existing, album, meta);
             return;
         }
@@ -208,13 +211,26 @@ public sealed class MusicImporter(MusicDbContext db, ImportSettings settings)
             LyricUrl = lyricUrl,
             DurationSeconds = meta.DurationSeconds
         };
+        SyncArtistLinks(song, allArtists);
         db.Songs.Add(song);
         _songsByUrl[audioUrl] = song;
         summary.Added++;
         var duration = TimeSpan.FromSeconds(meta.DurationSeconds);
         var albumText = album is null ? string.Empty : $" / {album.Name}";
-        Console.WriteLine($"  [新增] {meta.Title} - {artist.Name}{albumText}  ({duration:mm\\:ss})");
+        Console.WriteLine($"  [新增] {meta.Title} - {string.Join(" / ", allArtists.Select(a => a.Name))}{albumText}  ({duration:mm\\:ss})");
         AddPendingCover(song, album, meta);
+    }
+
+    /// <summary>
+    /// 重建这首歌的歌手关联（主歌手 Position = 0，其余按标签顺序）。
+    /// 新建与 --force 更新共用；用**导航属性**挂载 —— 未入库的新歌手此时 Id 还是 0，
+    /// 交给 EF 在 SaveChanges 时按依赖顺序解析外键。
+    /// </summary>
+    private static void SyncArtistLinks(Song song, IReadOnlyList<Artist> artists)
+    {
+        song.SongArtists.Clear();
+        for (var i = 0; i < artists.Count; i++)
+            song.SongArtists.Add(new SongArtist { Artist = artists[i], Position = i });
     }
 
     /// <summary>
@@ -239,28 +255,29 @@ public sealed class MusicImporter(MusicDbContext db, ImportSettings settings)
 
     private static Metadata ReadMetadata(string file)
     {
-        using var tagFile = TagLib.File.Create(file);
+        // 标签走 ATL（2026-09-23 起全项目只保留这一个音频库；Scanner 不引用 Application 工程，
+        // 所以与 TryGetAtlDurationSeconds 一样这里自带一份，口径与 Application/AudioTagReader 一致）。
+        var track = new ATL.Track(file);
 
-        var title = tagFile.Tag.Title?.Trim();
+        var title = track.Title?.Trim();
         if (string.IsNullOrWhiteSpace(title))
             title = Path.GetFileNameWithoutExtension(file);
 
-        var artist = (tagFile.Tag.FirstPerformer ?? tagFile.Tag.FirstAlbumArtist)?.Trim();
-        if (string.IsNullOrWhiteSpace(artist))
-            artist = UnknownArtist;
+        // 联合创作：多值歌手拆成多个（主歌手是第一个）
+        var artists = SplitArtists(track.Artist, track.AlbumArtist);
 
-        var album = tagFile.Tag.Album?.Trim();
+        var album = track.Album?.Trim();
         if (string.IsNullOrWhiteSpace(album))
             album = null;
 
-        var year = tagFile.Tag.Year is > 0 and < 3000 ? (int)tagFile.Tag.Year : (int?)null;
+        var year = track.Year is > 0 and < 3000 ? track.Year : (int?)null;
 
-        // 时长不在 TagLib 里取：由 TryGetAtlDurationSeconds 统一提供（ATL 逐帧解析 + 向下取整）
+        // 时长不在标签里取：由 TryGetAtlDurationSeconds 统一提供（ATL 逐帧解析 + 向下取整）
 
         byte[]? cover = null;
         var coverExtension = ".jpg";
-        if (tagFile.Tag.Pictures is { Length: > 0 } pictures
-            && pictures[0].Data?.Data is { Length: > 0 } data)
+        if (track.EmbeddedPictures is { Count: > 0 } pictures
+            && pictures[0].PictureData is { Length: > 0 } data)
         {
             cover = data;
             coverExtension = (pictures[0].MimeType ?? string.Empty).ToLowerInvariant() switch
@@ -273,7 +290,7 @@ public sealed class MusicImporter(MusicDbContext db, ImportSettings settings)
 
         return new Metadata(
             Truncate(title, MaxTitleLength)!,
-            Truncate(artist, MaxArtistNameLength)!,
+            artists.Select(a => Truncate(a, MaxArtistNameLength)!).ToList(),
             Truncate(album, MaxAlbumNameLength),
             year,
             0,   // DurationSeconds 由 TryGetAtlDurationSeconds 统一提供（with 表达式覆盖）
@@ -369,6 +386,36 @@ public sealed class MusicImporter(MusicDbContext db, ImportSettings settings)
     }
 
     private static string AlbumKey(string artistName, string albumName) => artistName + "\u0000" + albumName;
+
+    /// <summary>
+    /// 多值歌手拆成多个。分隔符只认 <c>;</c>（ATL 归一的写法）与中文顿号 <c>、</c>（中文标签里实测出现）。
+    /// ⚠️ 不要按 <c>/</c> 拆 —— 乐队名里带斜杠很常见（AC/DC），会被劈成两个歌手。
+    /// ⚠️ <paramref name="albumArtist"/> 只在主歌手字段为空时兜底（实测某文件
+    /// <c>Artist="Aimer;EGOIST"</c>、<c>AlbumArtist="Aimer/EGOIST"</c>，两个都取会多出一个假歌手）。
+    /// 与 Application/AudioTagReader.SplitArtists 同口径（Scanner 不引用 Application，故自带一份）。
+    /// </summary>
+    private static IReadOnlyList<string> SplitArtists(string? artist, string? albumArtist = null)
+    {
+        var names = Split(artist);
+        if (names.Count == 0) names = Split(albumArtist);
+        return names.Count > 0 ? names : [UnknownArtist];
+    }
+
+    private static List<string> Split(string? raw)
+    {
+        var result = new List<string>();
+        if (string.IsNullOrWhiteSpace(raw)) return result;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var part in raw.Split([';', '\u3001'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var name = part.Trim();
+            if (name.Length == 0 || !seen.Add(name)) continue;
+            result.Add(name);
+            if (result.Count >= 10) break;   // 限长：防脏标签造出几十个歌手
+        }
+        return result;
+    }
 
     private static string? Truncate(string? value, int maxLength) =>
         value is null || value.Length <= maxLength ? value : value[..maxLength];

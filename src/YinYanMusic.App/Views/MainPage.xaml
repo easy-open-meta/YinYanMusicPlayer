@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
@@ -12,53 +12,8 @@
         <!-- 内容区：首页 / 我的（各 Tab 自行控制顶部间距，首页 logo 与汉堡按钮同一行对齐） -->
         <Grid Grid.Row="0" x:Name="ContentHost"/>
 
-        <!-- 迷你播放条 -->
-        <Grid Grid.Row="1" x:Name="MiniPlayer" IsVisible="False" BackgroundColor="{StaticResource CardBackground}"
-              RowDefinitions="Auto,Auto" Padding="0" RowSpacing="0">
-            <Grid Grid.Row="0" x:Name="MiniProgressContainer" HeightRequest="20" VerticalOptions="Start">
-                <BoxView x:Name="MiniProgressTrack" BackgroundColor="#E0E0E0"
-                         HeightRequest="3" VerticalOptions="Start" HorizontalOptions="Fill"/>
-                <BoxView x:Name="MiniProgressFill" BackgroundColor="{DynamicResource Accent}"
-                         HeightRequest="3" VerticalOptions="Start" HorizontalOptions="Start" WidthRequest="0"/>
-                <Slider x:Name="MiniProgressSlider" Opacity="0.01"
-                        Minimum="0" Maximum="1" Value="0"
-                        HorizontalOptions="Fill" VerticalOptions="Fill"
-                        DragCompleted="OnMiniProgressDragCompleted"/>
-            </Grid>
-            <Grid Grid.Row="1" Padding="14,8" ColumnDefinitions="44,10,*,Auto,Auto,Auto,Auto" ColumnSpacing="0">
-                <Grid.Behaviors>
-                    <behaviors:PressFeedbackBehavior PressedScale="0.98" PressedOpacity="0.7"/>
-                </Grid.Behaviors>
-                <Grid.GestureRecognizers>
-                    <TapGestureRecognizer Tapped="OnMiniPlayerTapped"/>
-                </Grid.GestureRecognizers>
-                <!-- 封面：与「热门歌曲」列表里的封面同一套样式——圆角 4 的方图，
-                     不带任何额外外圈（底色是图片加载完之前的占位灰） -->
-                <Border Grid.Column="0" StrokeShape="RoundRectangle 4" StrokeThickness="0"
-                        WidthRequest="44" HeightRequest="44" Padding="0"
-                        BackgroundColor="{StaticResource Gray300}">
-                    <Image Aspect="AspectFill"
-                           Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}"/>
-                </Border>
-                <VerticalStackLayout Grid.Column="2" Spacing="1" VerticalOptions="Center">
-                    <Label Text="{Binding CurrentTitle}" FontSize="14" FontAttributes="Bold" LineBreakMode="TailTruncation"/>
-                    <Label Text="{Binding CurrentArtist}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
-                </VerticalStackLayout>
-                <Button Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE045;" Clicked="OnPreviousClicked"
-                        BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="16" Padding="0"
-                        WidthRequest="28" HeightRequest="28" MinimumWidthRequest="0" MinimumHeightRequest="0"/>
-                <Button Grid.Column="4" FontFamily="MaterialIcons" Text="{Binding IsPlaying, Converter={StaticResource BoolToPlayPause}}"
-                        Clicked="OnToggleClicked" CornerRadius="18" HeightRequest="36" WidthRequest="36"
-                        BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}" FontSize="18" Padding="0"
-                        MinimumWidthRequest="0" MinimumHeightRequest="0"/>
-                <Button Grid.Column="5" FontFamily="MaterialIcons" Text="&#xE044;" Clicked="OnNextClicked"
-                        BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="16" Padding="0"
-                        WidthRequest="28" HeightRequest="28" MinimumWidthRequest="0" MinimumHeightRequest="0"/>
-                <Button Grid.Column="6" FontFamily="MaterialIcons" Text="&#xE03D;" Clicked="OnQueueClicked"
-                        BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="16" Padding="0"
-                        WidthRequest="28" HeightRequest="28" MinimumWidthRequest="0" MinimumHeightRequest="0"/>
-            </Grid>
-        </Grid>
+        <!-- 迷你播放条（V2.6 抽成 MiniPlayerView，本地音乐页复用同一组件） -->
+        <views:MiniPlayerView Grid.Row="1" x:Name="MiniPlayer"/>
 
         <!-- 底部导航 -->
         <Grid Grid.Row="2" ColumnDefinitions="*,*,*" HeightRequest="52" BackgroundColor="{StaticResource CardBackground}">
@@ -92,36 +47,42 @@
                          老的 RenderEffect 写法在这里会把底图渲染成纯黑。 -->
                     <Image x:Name="QueueAcrylicCover" Aspect="AspectFill"/>
                         <!-- 浅色亚克力：高明度的白遮罩带 alpha（不是不透明），
-                             让磨砂层透出封面的色彩与明暗。原来是 #CC（80% 白），
-                             底图整个被盖成一片白，看不出磨砂；收到 0.52~0.72 之后
-                             封面的色调能透出来，深色文字依然清晰。 -->
+                             让磨砂层透出封面的色彩与明暗。
+                             历次调参：
+                             · #CC (80%) → 底图整个被盖成一片白，看不出磨砂；
+                             · #85/#A6/#B8 (52~72%) → Android 上 OK，但 Windows 的
+                               箱式模糊输出比 Android 略亮，深色文字遇到亮封面会糊
+                               （用户 2026-09-22 反馈"太透看不清"）；
+                             · 当前 Windows=#A8/#C8/#E8 (66/78/91%) / Android=#85/#A6/#B8 (52/65/72%) →
+                               Windows 底部近不透明保证列表字清晰，Android 维持原手感。
+                             用 OnPlatform 标记扩展分平台：不想动 XAML 资源字典的额外接线，
+                             改动只集中在这一处。这三档只动 MainPage：LocalMusicPage 是纯白底
+                             不走亚克力，NowPlayingPage 是深色主题白字，逻辑都不一样。 -->
                         <BoxView>
                             <BoxView.Background>
                                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#85FFFFFF" Offset="0" />
-                                    <GradientStop Color="#A6FFFFFF" Offset="0.5" />
-                                    <GradientStop Color="#B8FFFFFF" Offset="1" />
+                                    <GradientStop Color="{OnPlatform WinUI=#A8FFFFFF, Android=#85FFFFFF}" Offset="0" />
+                                    <GradientStop Color="{OnPlatform WinUI=#C8FFFFFF, Android=#A6FFFFFF}" Offset="0.5" />
+                                    <GradientStop Color="{OnPlatform WinUI=#E8FFFFFF, Android=#B8FFFFFF}" Offset="1" />
                                 </LinearGradientBrush>
                             </BoxView.Background>
                         </BoxView>
 
                         <Grid RowDefinitions="Auto,*,Auto">
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,14">
-                            <Label Text="播放列表" FontSize="18" FontAttributes="Bold"/>
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="12,4">
+                            <Label Text="播放列表" FontSize="18" FontAttributes="Bold"
+                                   VerticalOptions="End" VerticalTextAlignment="End"/>
                             <Button Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE5CD;" Clicked="OnCloseQueueClicked"
-                                    BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="18" Padding="0" WidthRequest="36" HeightRequest="36"/>
+                                    BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="16" Padding="0" WidthRequest="28" HeightRequest="28"/>
                         </Grid>
                         <!-- SelectionMode=None + 显式 Tap：原因见 NowPlayingPage 同名列表注释 -->
-                        <CollectionView Grid.Row="1" x:Name="QueueList" SelectionMode="None" Margin="0,4">
+                        <CollectionView Grid.Row="1" x:Name="QueueList" SelectionMode="None" Margin="0,2">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="views:QueueItem">
                                     <Grid Padding="16,10" ColumnDefinitions="28,*,Auto,Auto" ColumnSpacing="8">
                                         <Grid.Behaviors>
-                                            <behaviors:PressFeedbackBehavior />
+                                            <behaviors:PressFeedbackBehavior Tapped="OnQueueItemTapped" />
                                         </Grid.Behaviors>
-                                        <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Tapped="OnQueueItemTapped"/>
-                                        </Grid.GestureRecognizers>
                                         <Label Grid.Column="0" Text="{Binding IndexText}" FontSize="13" TextColor="{StaticResource Gray500}"
                                                VerticalOptions="Center" HorizontalTextAlignment="Center"/>
                 <VerticalStackLayout Grid.Column="1" Spacing="1" Margin="10,0,0,0" VerticalOptions="Center">
@@ -168,7 +129,7 @@
                             FontSize="20" Padding="0" WidthRequest="36" HeightRequest="36"
                             MinimumWidthRequest="0" MinimumHeightRequest="0" Clicked="OnDrawerCloseClicked"/>
                 </Grid>
-                <Grid RowDefinitions="Auto,Auto,Auto" Padding="6">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Padding="6">
                     <Grid x:Name="ThemeColorRow" ColumnDefinitions="*,Auto" Padding="16,14">
                         <Grid.Behaviors>
                             <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
@@ -183,7 +144,81 @@
                         <Label x:Name="CurrentThemeLabel" Grid.Column="1" Text="紫色" FontSize="13" TextColor="{DynamicResource Gray500}" VerticalOptions="Center"/>
                     </Grid>
                     <BoxView Grid.Row="1" HeightRequest="1" BackgroundColor="{DynamicResource CardBorder}" Margin="16,0"/>
-                    <Grid x:Name="LogoutRow" Grid.Row="2" Padding="16,14">
+                    <!-- 偏好设置：本机行为开关（关窗口隐藏到托盘等）。**Windows 专属**，Android 上整行隐藏
+                         （IsVisible 默认 False，由 MainPage 构造时按 AppPreferences 的平台判定打开） -->
+                    <Grid x:Name="PreferencesRow" Grid.Row="2" Padding="16,14" IsVisible="False">
+                        <Grid.Behaviors>
+                            <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                        </Grid.Behaviors>
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnDrawerPreferencesClicked"/>
+                        </Grid.GestureRecognizers>
+                        <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                            <Label FontFamily="MaterialIcons" Text="&#xE8B8;" FontSize="22" TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+                            <Label Text="偏好设置" FontSize="16" VerticalOptions="Center"/>
+                        </HorizontalStackLayout>
+                    </Grid>
+                    <!-- 这条线跟偏好设置行同生共死：Android 上行隐藏后如果线还在，
+                         会和上面的分隔线贴成一条粗线（用户反馈"很难看"） -->
+                    <BoxView x:Name="PreferencesDivider" Grid.Row="3" HeightRequest="1" BackgroundColor="{DynamicResource CardBorder}" Margin="16,0" IsVisible="False"/>
+                    <!-- 本地音乐（V2.6→V2.9）：入口已迁到「我的」页（个人卡下方），抽屉里不再显示。
+                         缓存管理上移到第 4 行，原第 4 行内容（本地音乐）删除。 -->
+                    <Grid x:Name="CacheRow" Grid.Row="4" Padding="16,14">
+                        <Grid.Behaviors>
+                            <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                        </Grid.Behaviors>
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnDrawerCacheClicked"/>
+                        </Grid.GestureRecognizers>
+                        <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                            <Label FontFamily="MaterialIcons" Text="&#xE2C4;" FontSize="22" TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+                            <Label Text="缓存管理" FontSize="16" VerticalOptions="Center"/>
+                        </HorizontalStackLayout>
+                    </Grid>
+                    <BoxView Grid.Row="5" HeightRequest="1" BackgroundColor="{DynamicResource CardBorder}" Margin="16,0"/>
+                    <!-- 安全中心（V2.5 调整）：从账号页移到这里，与设置类入口放在一起 -->
+                    <Grid x:Name="SecurityRow" Grid.Row="6" Padding="16,14">
+                        <Grid.Behaviors>
+                            <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                        </Grid.Behaviors>
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnDrawerSecurityClicked"/>
+                        </Grid.GestureRecognizers>
+                        <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                            <Label FontFamily="MaterialIcons" Text="&#xE32A;" FontSize="22" TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+                            <Label Text="安全中心" FontSize="16" VerticalOptions="Center"/>
+                        </HorizontalStackLayout>
+                    </Grid>
+                    <BoxView Grid.Row="7" HeightRequest="1" BackgroundColor="{DynamicResource CardBorder}" Margin="16,0"/>
+                    <!-- 关于 -->
+                    <Grid x:Name="AboutRow" Grid.Row="8" Padding="16,14">
+                        <Grid.Behaviors>
+                            <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                        </Grid.Behaviors>
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnDrawerAboutClicked"/>
+                        </Grid.GestureRecognizers>
+                        <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                            <Label FontFamily="MaterialIcons" Text="&#xE88E;" FontSize="22" TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+                            <Label Text="关于" FontSize="16" VerticalOptions="Center"/>
+                        </HorizontalStackLayout>
+                    </Grid>
+                    <BoxView Grid.Row="9" HeightRequest="1" BackgroundColor="{DynamicResource CardBorder}" Margin="16,0"/>
+                    <!-- 第三方开源组件引用 -->
+                    <Grid x:Name="ThirdPartyRow" Grid.Row="10" Padding="16,14">
+                        <Grid.Behaviors>
+                            <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                        </Grid.Behaviors>
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnDrawerThirdPartyClicked"/>
+                        </Grid.GestureRecognizers>
+                        <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                            <Label FontFamily="MaterialIcons" Text="&#xE873;" FontSize="22" TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+                            <Label Text="第三方开源组件引用" FontSize="16" VerticalOptions="Center"/>
+                        </HorizontalStackLayout>
+                    </Grid>
+                    <BoxView Grid.Row="11" HeightRequest="1" BackgroundColor="{DynamicResource CardBorder}" Margin="16,0"/>
+                    <Grid x:Name="LogoutRow" Grid.Row="12" Padding="16,14">
                         <Grid.Behaviors>
                             <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
                         </Grid.Behaviors>

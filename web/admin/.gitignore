@@ -1,0 +1,6 @@
+# 前端构建产物（`npm run build` 的输出）不入库 —— 与 node_modules 同理
+dist/
+
+# `npm run gen:api` 的中间产物：从后端 /openapi/v1.json 抓下来的临时文件，
+# 每次生成都会被覆盖。真正要入库的是它生成的 src/api/schema.d.ts（契约漂移靠 git diff 看）。
+openapi.json

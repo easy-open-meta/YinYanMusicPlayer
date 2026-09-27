@@ -368,9 +368,34 @@ test_login.json
 /.workbuddy/memory/2026-09-12.md
 /src/YinYanMusic.Api/wwwroot/media/image
 /.workbuddy
-/docs
 /src/YinYanMusic.App/Platforms/Android/Resources/raw/yinyan_local.cer
 
 # 打包脚本例外：上面的 *.ps1 是"本地脚本不入库"的默认策略，
 # 但下面这个是 Windows 客户端打包流程的一部分，必须跟着仓库走。
 !installer/*.ps1
+/.box-agent/task-registry/tasks
+/.config
+
+# 调试 / 校验工具产生的临时产物：自动化构建、workbuddy / box-agent / codeartsdoer /
+# P0 检查、构建校验副本（binverify 等）留下的 DLL 副本与日志。这类一律忽略，
+# 防止提交时误带进仓库（约定见 AGENTS.md 的"忽略调试临时产物"）。
+# 注：review/ 是效果图，需要入库，不在此列。
+binverify*
+.box-agent-scratch
+.tmp_p0check
+.codeartsdoer
+/.box-agent/memory
+
+# AI 助手技能与工具目录（clawhub 安装产物 + 本地技能副本），不入库
+/.agents
+/skills
+/.clawhub
+
+# 「消息通知」页的浏览器预览脚手架：index.html + preview.css / preview.js 只是本地看效果用的
+# 静态复刻（方便不重新构建 App 就确认标题里的未读数长什么样），不是产品源码 ——
+# 改动本体在 src/YinYanMusic.App/Views/NotificationsPage.xaml 与 NotificationsViewModel.cs。
+# 不再需要预览时，删掉这三个文件与这三行即可。
+/index.html
+/preview.css
+/preview.js
+/installer/certs

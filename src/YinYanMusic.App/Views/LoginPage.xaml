@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:YinYanMusic.App.ViewModels"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
              x:Class="YinYanMusic.App.Views.LoginPage"
              BackgroundColor="{StaticResource PageBackground}">
 
@@ -47,6 +48,25 @@
                         BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
                         FontSize="12" Padding="12,0" HeightRequest="48" Margin="0"/>
             </HorizontalStackLayout>
+
+            <!-- V2.6：本地音乐直达入口。
+                 本地音乐是纯本地能力（扫描/存储/播放与服务端零交互），但**恢复登录态必须联网**
+                 （TryRestoreSessionAsync → api.MeAsync()，失败即登出并停在本页）。
+                 没有这个入口的话，用户在最需要离线听歌的场景下反而进不去 ——
+                 所以这里刻意做成无需登录即可进入。 -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,4,13,0"
+                  HorizontalOptions="Center">
+                <Grid.Behaviors>
+                    <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                </Grid.Behaviors>
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnOpenLocalMusic"/>
+                </Grid.GestureRecognizers>
+                <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE405;" FontSize="17"
+                       TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+                <Label Grid.Column="1" Text="本地音乐（无需登录）" FontSize="13"
+                       TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+            </Grid>
         </VerticalStackLayout>
     </Grid>
 </ContentPage>

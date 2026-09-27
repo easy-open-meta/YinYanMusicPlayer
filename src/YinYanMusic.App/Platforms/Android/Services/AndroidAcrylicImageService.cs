@@ -9,27 +9,39 @@ namespace YinYanMusic.App;
 /// Android 端亚克力底图：下载封面 → 缩到 40×40 → 箱式模糊 → 编码成 PNG 交给 Image 铺底。
 /// 缩放倍数极大（40 → 屏宽 1600px 左右），双线性放大本身就把残余细节抹平，
 /// 所以这里只需要几趟箱式模糊，比高斯核便宜得多。
+/// 处理结果按 URL 缓存在 <see cref="AndroidBitmapCache"/>（官方 LruCache，按可用内存分配），
+/// 同封面反复开关浮窗时不重复下载与重算。
 /// </summary>
 public class AndroidAcrylicImageService : IAcrylicImageService
 {
     private static readonly HttpClient Http = new();
 
-    // 缓存：同封面反复开关浮窗时不重复下载与重算（浮窗最常被反复打开）
-    private readonly Dictionary<string, ImageSource?> _cache = new();
+    private readonly AndroidBitmapCache _bitmapCache;
+
+    public AndroidAcrylicImageService(AndroidBitmapCache bitmapCache)
+    {
+        _bitmapCache = bitmapCache;
+    }
 
     public async Task<ImageSource?> CreateAsync(string? coverUrl, CancellationToken ct = default)
     {
-        var url = ApiConfig.Absolute(coverUrl);
-        if (string.IsNullOrWhiteSpace(url)) return null;
-        if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return null;
+        if (string.IsNullOrWhiteSpace(coverUrl)) return null;
 
-        if (_cache.TryGetValue(url, out var cached)) return cached;
+        // V2.13：字节来源统一走 ImageSourceFactory.ReadBytesAsync。
+        // 这里原先写的是「ApiConfig.Absolute(coverUrl) 然后要求结果以 http 开头」——
+        // 本地歌的封面是磁盘路径 / content://，前者会被拼成假 URL 后 404，后者直接被那道守卫挡掉，
+        // 结果是本地歌永远没有亚克力底图（静默降级成纯遮罩，所以一直没被发现）。
+        // 现在 http / data: / file:// / content:// / 盘符 / 裸路径都能出字节。
+        // 缓存键改用**原始地址**：同一张封面在"绝对 URL"与"本地路径"两种形态下语义不同，
+        // 用原始串做键最省心，也不会在改服务器地址后命中旧缓存。
+        if (_bitmapCache.GetBitmap(coverUrl) is { } cached)
+            return BitmapToImageSource(cached);
 
-        ImageSource? result = null;
+        Bitmap? bitmap = null;
         try
         {
-            var bytes = await Http.GetByteArrayAsync(url, ct);
-            if (bytes.Length == 0) return null;
+            var bytes = await ImageSourceFactory.ReadBytesAsync(coverUrl, Http, ct);
+            if (bytes is null || bytes.Length == 0) return null;
 
             var argb = DecodeSmall(bytes);
             if (argb is null) return null;
@@ -39,22 +51,24 @@ public class AndroidAcrylicImageService : IAcrylicImageService
             AcrylicBlur.Apply(rgba, size, size, AcrylicDefaults.BlurRadius);
             ToArgb(rgba, argb);
 
-            using var bitmap = Bitmap.CreateBitmap(argb, size, size, Bitmap.Config.Argb8888!);
+            bitmap = Bitmap.CreateBitmap(argb, size, size, Bitmap.Config.Argb8888!);
             if (bitmap is null) return null;
-
-            using var ms = new MemoryStream();
-            if (!bitmap.Compress(Bitmap.CompressFormat.Png!, 100, ms)) return null;
-
-            var png = ms.ToArray();
-            result = ImageSource.FromStream(() => new MemoryStream(png));
         }
         catch
         {
             return null;   // 取不到就退化成纯遮罩，不影响浮窗可用性
         }
 
-        _cache[url] = result;
-        return result;
+        _bitmapCache.PutBitmap(coverUrl, bitmap);
+        return BitmapToImageSource(bitmap);
+    }
+
+    private static ImageSource? BitmapToImageSource(Bitmap bitmap)
+    {
+        using var ms = new MemoryStream();
+        if (!bitmap.Compress(Bitmap.CompressFormat.Png!, 100, ms)) return null;
+        var png = ms.ToArray();
+        return ImageSource.FromStream(() => new MemoryStream(png));
     }
 
     private static int[]? DecodeSmall(byte[] bytes)

@@ -18,12 +18,30 @@ public class PlaylistsController(IPlaylistService playlists, ICurrentUserService
         [FromQuery] int pageSize = 20)
         => Ok(await playlists.SearchAsync(keyword, categoryId, ownerId, page, pageSize));
 
+    /// <summary>后台强行删除任意歌单。</summary>
+    [Authorize(Roles = "admin")]
+    [HttpDelete("{id:long}/admin")]
+    public async Task<IActionResult> AdminDelete(long id)
+        => MapResult(await playlists.AdminDeleteAsync(id));
+
     [HttpGet("{id:long}")]
     public async Task<ActionResult<PlaylistDetailDto>> Get(long id)
     {
         var dto = await playlists.GetAsync(id, currentUser.UserId);
         return dto is null ? NotFound() : Ok(dto);
     }
+
+    /// <summary>
+    /// 歌单内搜索歌曲（V2.4）。关键词命中标题/歌手/专辑，大小写不敏感；
+    /// 空关键词返回歌单全部歌曲。权限与歌单详情接口保持一致（公开可读）。
+    /// </summary>
+    [HttpGet("{id:long}/songs")]
+    public async Task<ActionResult<PagedResult<SongDto>>> SearchSongs(
+        long id,
+        [FromQuery] string? keyword,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+        => Ok(await playlists.SearchSongsAsync(id, keyword, page, pageSize));
 
     [Authorize]
     [HttpPost]

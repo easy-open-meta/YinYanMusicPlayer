@@ -20,10 +20,6 @@ public class MediaNotificationManager : MediaSessionCompat.Callback, IDisposable
     private static readonly Lazy<MediaNotificationManager> _instance = new(() => new MediaNotificationManager());
     public static MediaNotificationManager Instance => _instance.Value;
 
-    // 复用同一个 HttpClient：每次 new 都会各自持有连接池与套接字，快速切歌时可能耗尽端口。
-    // 进程级静态实例，生命周期长于本类，因此 Dispose 里不释放它（Dispose 后 Init 仍可重建会话）。
-    private static readonly HttpClient _httpClient = new();
-
     private MediaSessionCompat? _session;
     private NotificationManager? _notificationManager;
     private Context? _context;
@@ -103,22 +99,63 @@ public class MediaNotificationManager : MediaSessionCompat.Callback, IDisposable
         // 每次请求领一个序号（先领号再去重/下载），快速切歌时旧封面的下载结果会被丢弃，
         // 避免"先发起、后完成"的旧封面覆盖当前歌曲的封面。
         var requestId = Interlocked.Increment(ref _coverRequestId);
+
+        // ⚠️ 没有封面时必须**清掉并重建通知**，不能只把内存位图置空就 return。
+        // 旧实现就是直接 return，于是"从在线歌切到没有封面的本地歌"时，
+        // 通知栏会一直挂着上一首（在线歌）的封面 —— 真机反馈的"封面没及时刷新"就是这个。
         if (string.IsNullOrEmpty(coverUrl))
         {
-            _largeIcon?.Recycle();
-            _largeIcon = null;
+            ClearCoverAndRefresh();
             return;
         }
         try
         {
-            var bytes = await _httpClient.GetByteArrayAsync(coverUrl);
+            // ⚠️ 不能直接用 HttpClient：本地曲库的封面是磁盘路径（AppData/local-covers/x.jpg）
+            // 或 content:// URI，HTTP 取不到 → 异常被静默吞掉 → 通知栏封面一直是空的
+            //（真机反馈："通知栏封面与播放页不一致"）。
+            // 统一走 ImageSourceFactory.ReadBytesAsync，它认得 http / 本地路径 / content:// / data:。
+            // 用完全限定名：本文件在 YinYanMusic.App 命名空间下，而 Platforms/Android/Services
+            // 里也有服务类，简写容易解析歧义。
+            var bytes = await YinYanMusic.App.Services.ImageSourceFactory.ReadBytesAsync(coverUrl);
             if (requestId != Volatile.Read(ref _coverRequestId)) return;
-            _largeIcon?.Recycle();
-            _largeIcon = BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length);
+
+            // 取不到封面（文件已被删、content:// 授权失效、网络抖动）：同样清空 + 重建，
+            // 让通知栏落到"无封面"而不是"停留在上一首的封面"。
+            if (bytes is null || bytes.Length == 0)
+            {
+                ClearCoverAndRefresh();
+                return;
+            }
+
+            var decoded = BitmapFactory.DecodeByteArray(bytes, 0, bytes.Length);
+            if (decoded is null)
+            {
+                ClearCoverAndRefresh();
+                return;
+            }
+
+            try { _largeIcon?.Recycle(); } catch { }
+            _largeIcon = decoded;
             SetMetadata();
             ShowNotification();
         }
-        catch { }
+        catch
+        {
+            ClearCoverAndRefresh();
+        }
+    }
+
+    /// <summary>
+    /// 清空通知大图并重建通知。换歌但"这首歌没有封面/封面取不到"时的统一出口 ——
+    /// 目的是让通知栏立刻掉到"无封面"状态，而不是继续显示上一首的封面。
+    /// </summary>
+    private void ClearCoverAndRefresh()
+    {
+        if (_largeIcon is null && _session is null) return;
+        try { _largeIcon?.Recycle(); } catch { }
+        _largeIcon = null;
+        SetMetadata();        // 新 metadata 里不再带 ART
+        ShowNotification();   // 用新 builder 重建（_largeIcon 为 null 时不会 SetLargeIcon）
     }
 
     public void UpdatePlaybackState(bool isPlaying, long positionMs, long durationMs)
@@ -153,6 +190,31 @@ public class MediaNotificationManager : MediaSessionCompat.Callback, IDisposable
         _session.SetPlaybackState(builder.Build());
     }
 
+    /// <summary>构建当前媒体通知（前台服务与普通刷新共用）。</summary>
+    public Notification BuildNotification()
+    {
+        var builder = new NotificationCompat.Builder(_context, ChannelId)
+            .SetSmallIcon(Resource.Mipmap.icon)
+            .SetContentTitle(_title)
+            .SetContentText(_artist)
+            .SetContentIntent(BuildLaunchIntent())
+            .SetVisibility(NotificationCompat.VisibilityPublic)
+            .SetOngoing(_lastIsPlaying)
+            .SetShowWhen(false)
+            .SetStyle(new AndroidX.Media.App.NotificationCompat.MediaStyle()
+                .SetMediaSession(_session!.SessionToken))
+            .AddAction(BuildAction(PlayAction, "play", "播放", (int)BuildVersionCodes.Lollipop, !_lastIsPlaying, 1))
+            .AddAction(BuildAction(PauseAction, "pause", "暂停", (int)BuildVersionCodes.Lollipop, _lastIsPlaying, 2))
+            .AddAction(BuildAction(NextAction, "next", "下一首", (int)BuildVersionCodes.Lollipop, true, 3))
+            .AddAction(BuildAction(PreviousAction, "prev", "上一首", (int)BuildVersionCodes.Lollipop, true, 4))
+            .AddAction(BuildAction(StopAction, "stop", "关闭", (int)BuildVersionCodes.Lollipop, true, 5));
+
+        if (_largeIcon is not null)
+            builder.SetLargeIcon(_largeIcon);
+
+        return builder.Build();
+    }
+
     private void ShowNotification()
     {
         if (_context is null || _notificationManager is null || _session is null) return;
@@ -160,28 +222,8 @@ public class MediaNotificationManager : MediaSessionCompat.Callback, IDisposable
         {
             // 只重建通知本身。PlaybackState 由 UpdatePlaybackState/UpdateProgress 统一维护，
             // 这里若再 SetPlaybackState 会用过期参数回写状态，切歌时进度条会闪回上一首的位置。
-            var mediaStyle = new AndroidX.Media.App.NotificationCompat.MediaStyle()
-                .SetMediaSession(_session.SessionToken);
-
-            var builder = new NotificationCompat.Builder(_context, ChannelId)
-                .SetSmallIcon(Resource.Mipmap.icon)
-                .SetContentTitle(_title)
-                .SetContentText(_artist)
-                .SetContentIntent(BuildLaunchIntent())
-                .SetVisibility(NotificationCompat.VisibilityPublic)
-                .SetOngoing(_lastIsPlaying)
-                .SetShowWhen(false)
-                .SetStyle(mediaStyle)
-                .AddAction(BuildAction(PlayAction, "play", "播放", (int)BuildVersionCodes.Lollipop, !_lastIsPlaying, 1))
-                .AddAction(BuildAction(PauseAction, "pause", "暂停", (int)BuildVersionCodes.Lollipop, _lastIsPlaying, 2))
-                .AddAction(BuildAction(NextAction, "next", "下一首", (int)BuildVersionCodes.Lollipop, true, 3))
-                .AddAction(BuildAction(PreviousAction, "prev", "上一首", (int)BuildVersionCodes.Lollipop, true, 4))
-                .AddAction(BuildAction(StopAction, "stop", "关闭", (int)BuildVersionCodes.Lollipop, true, 5));
-
-            if (_largeIcon is not null)
-                builder.SetLargeIcon(_largeIcon);
-
-            _notificationManager.Notify(NotificationId, builder.Build());
+            // 通过前台服务 startForeground 发布，避免后台时被系统降级成普通"正在运行中"通知。
+            MusicPlaybackService.Start(_context, BuildNotification());
         }
         catch (Exception ex)
         {
@@ -222,6 +264,8 @@ public class MediaNotificationManager : MediaSessionCompat.Callback, IDisposable
     /// </summary>
     public void HideNotification()
     {
+        if (_context is not null)
+            MusicPlaybackService.Stop(_context);
         _notificationManager?.Cancel(NotificationId);
         if (_session is not null)
             _session.Active = false;
@@ -236,6 +280,16 @@ public class MediaNotificationManager : MediaSessionCompat.Callback, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+
+        try
+        {
+            if (_context is not null)
+                MusicPlaybackService.Stop(_context);
+        }
+        catch (Exception ex)
+        {
+            Android.Util.Log.Warn("YinYanMusic", $"Dispose: stop playback service failed: {ex.Message}");
+        }
 
         try
         {

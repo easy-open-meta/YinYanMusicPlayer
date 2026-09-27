@@ -5,6 +5,7 @@ namespace YinYanMusic.App.Views;
 public partial class LoginPage : ContentPage
 {
 	private bool _navigatingToSettings;
+	private bool _navigatingToLocalMusic;
 
 	public LoginPage() : this(ServiceHelper.GetRequiredService<LoginViewModel>())
 	{
@@ -37,6 +38,34 @@ public partial class LoginPage : ContentPage
 		finally
 		{
 			_navigatingToSettings = false;
+		}
+	}
+
+	/// <summary>
+	/// V2.6：登录页「本地音乐」入口。**无需登录**即可进入 ——
+	/// 恢复登录态需要联网（MeAsync 失败会登出并停在本页），
+	/// 而本地音乐恰恰是给"没网/后端不可达"准备的，所以入口不能卡在登录后面。
+	/// 本地音乐页本身不调用任何服务端接口，因此未登录状态下功能完整。
+	/// </summary>
+	private async void OnOpenLocalMusic(object? sender, EventArgs e)
+	{
+		if (_navigatingToLocalMusic) return;
+		_navigatingToLocalMusic = true;
+		try
+		{
+			await Shell.Current.GoToAsync("localMusic");
+		}
+		catch (Exception ex)
+		{
+#if ANDROID
+			Android.Util.Log.Warn("YinYan", $"navigate to localMusic failed: {ex.Message}");
+#else
+			System.Diagnostics.Debug.WriteLine($"[LoginPage] navigate to localMusic failed: {ex.Message}");
+#endif
+		}
+		finally
+		{
+			_navigatingToLocalMusic = false;
 		}
 	}
 }

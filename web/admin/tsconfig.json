@@ -1,0 +1,18 @@
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "include": ["src/**/*", "src/**/*.vue", "openapi.json"],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "baseUrl": ".",
+    "paths": {
+      "@/*":      ["src/*"],
+      "@layout/*": ["src/layout/*"],
+      "@api/*":    ["src/api/*"],
+      "@stores/*": ["src/stores/*"]
+    },
+    "types": ["node"],
+    "verbatimModuleSyntax": true
+  }
+}

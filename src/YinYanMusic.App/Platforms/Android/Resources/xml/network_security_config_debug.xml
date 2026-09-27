@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  【Debug 包专用】Android 明文访问控制 —— 明文"全开"。
+
+  为什么必须单独一个文件：**一旦应用声明了 networkSecurityConfig，明文许可就完全由这个文件决定**，
+  AndroidManifest 的 android:usesCleartextTraffic 会被忽略（官方文档明确）。所以"Debug 能连任意
+  内网地址"这个需求只能通过换掉本文件来实现 —— 而 <base-config> 是唯一的全局开关
+  （<domain> 只能逐个域名/IP 精确匹配，不支持网段通配）。
+
+  历史上这里是靠 <debug-overrides> 里的 <base-config cleartextTrafficPermitted="true"> 实现的，
+  **那是无效配置**：<debug-overrides> 的合法子元素只有 <trust-anchors>
+  （仅用于调试期追加信任的用户证书），改不了明文策略。于是"Debug 全开"从未生效，
+  真机连 http://<局域网 IP>:5116 只会得到一句笼统的 "Connection failure"
+  （.NET 把 Java 层的 IOException 包了一层），2026-09-22 排查并修正。
+
+  谁在用哪个文件：由 YinYanMusic.App.csproj 的 AndroidManifestPlaceholders（占位符 ${nscRes}）
+  决定 —— Debug → 本文件；Release / 其它 → network_security_config.xml（严格版）。
+  ⚠️ 改动其中一份时，务必同时检查另一份，别让两者对生产域名的策略出现分歧。
+-->
+<network-security-config>
+	<!-- Debug：任何地址都允许明文（真机连自建/局域网后端必需）。 -->
+	<base-config cleartextTrafficPermitted="true">
+		<trust-anchors>
+			<certificates src="system" />
+		</trust-anchors>
+	</base-config>
+</network-security-config>

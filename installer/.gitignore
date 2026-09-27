@@ -1,3 +1,10 @@
 # Windows 客户端打包产物（build-client-installer.ps1 的中间产物 + 最终 setup.exe）
 # 里面是几百 MB 的发布输出，绝不入库。
 build/
+
+# 私钥与签名密码绝不入库。certs\yinyan.pem 是公钥证书（公开信息），可以提交；
+# 同目录下的 .pfx / .p12 / .keystore 一律排除，防止误提交把签名能力泄露出去。
+*.pfx
+*.p12
+*.keystore
+signing.secret

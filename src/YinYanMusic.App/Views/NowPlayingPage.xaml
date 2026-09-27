@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:views="clr-namespace:YinYanMusic.App.Views"
@@ -7,7 +7,7 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource NowPlayingBackground}">
 
-    <Grid>
+    <Grid x:Name="RootGrid" Opacity="0">
         <!-- 动态亚克力背景：三层叠加
              1) 封面铺底 —— 由平台的 IBlurService 做高斯模糊（Android 12+ 用 RenderEffect，
                 不支持的平台退化成未模糊的封面底图，不影响其余两层）
@@ -39,6 +39,12 @@
                         Command="{Binding BackCommand}" FontSize="22" Padding="0" WidthRequest="40" HeightRequest="40"/>
                 <Label Grid.Column="1" Text="{Binding Player.SourceName}" FontSize="13" TextColor="{StaticResource Gray400}"
                        HorizontalOptions="Center" VerticalOptions="Center" LineBreakMode="TailTruncation" MaxLines="1"/>
+                <!-- 评论（V2.9）。本地歌只在设备上、没有服务端记录，这里隐藏入口：
+                     "当前歌是服务端曲库里的歌"正是 CanLike 的判据，所以复用同一个来源
+                     （Player.Current.IsLocal 取反），不再单开一个 ViewModel 属性。 -->
+                <Button Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE0B9;" BackgroundColor="Transparent" TextColor="White"
+                        Clicked="OnCommentsClicked" FontSize="20" Padding="0" WidthRequest="40" HeightRequest="40"
+                        IsVisible="{Binding Player.Current.IsLocal, Converter={StaticResource InverseBool}}"/>
             </Grid>
 
             <Grid Grid.Row="1" x:Name="VinylDisc" WidthRequest="260" HeightRequest="260"
@@ -77,22 +83,41 @@
                                    Padding="6,1" Margin="0" HasShadow="False" VerticalOptions="Center">
                                 <Label Text="{Binding Player.QualityLabel}" FontSize="11" FontAttributes="Bold" TextColor="{DynamicResource OnPrimary}"/>
                             </Frame>
+                            <!-- V2.7：已缓存徽标。与音质标签形制相同、颜色不同，
+                                 用户一眼能看出"这首离线也听得到"（TC-2.7-02）。 -->
+                            <Frame x:Name="CachedBadge" IsVisible="{Binding Player.IsCurrentCached}"
+                                   BackgroundColor="Transparent" BorderColor="{DynamicResource Accent}" CornerRadius="4"
+                                   Padding="6,1" Margin="0" HasShadow="False" VerticalOptions="Center">
+                                <Label Text="已缓存" FontSize="11" FontAttributes="Bold"
+                                       TextColor="{DynamicResource Accent}"/>
+                            </Frame>
                         </HorizontalStackLayout>
                         <HorizontalStackLayout Spacing="6">
-                            <Label x:Name="ArtistLabel" Text="{Binding Player.CurrentArtist}" FontSize="14" TextColor="{StaticResource Gray400}"
-                                   LineBreakMode="TailTruncation" VerticalOptions="Center">
-                                <Label.Behaviors>
+                            <!-- 歌手：联合创作时会显示成 "Aimer / EGOIST"，超宽时与歌名同一套跑马灯滚动。
+                                 点击进歌手主页 —— 手势与按压反馈挂在**容器**上：文本滚动时 Label 自身在动，
+                                 点在 Label 上的落点不稳定，容器才是可靠的点击区域。 -->
+                            <Grid x:Name="ArtistMarquee" HeightRequest="20" IsClippedToBounds="True" VerticalOptions="Center">
+                                <Grid.Behaviors>
                                     <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
-                                </Label.Behaviors>
-                                <Label.GestureRecognizers>
+                                </Grid.Behaviors>
+                                <Grid.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnArtistTapped"/>
-                                </Label.GestureRecognizers>
-                            </Label>
-                            <!-- 关注歌手：未关注显示 +，已关注显示 ✓（再点一次取消关注） -->
+                                </Grid.GestureRecognizers>
+                                <HorizontalStackLayout x:Name="ArtistTrack" Spacing="48" VerticalOptions="Center">
+                                    <Label x:Name="ArtistLabel" Text="{Binding Player.CurrentArtistDisplay}" FontSize="14" TextColor="{StaticResource Gray400}"
+                                           LineBreakMode="NoWrap" VerticalOptions="Center"/>
+                                    <!-- 副本：无缝循环的第二份歌手名，仅在文本溢出需要滚动时显示 -->
+                                    <Label x:Name="ArtistCopy" IsVisible="False" Text="{Binding Player.CurrentArtistDisplay}" FontSize="14" TextColor="{StaticResource Gray400}"
+                                           LineBreakMode="NoWrap" VerticalOptions="Center"/>
+                                </HorizontalStackLayout>
+                            </Grid>
+                            <!-- 关注歌手：未关注显示 +，已关注显示 ✓（再点一次取消关注）。
+                                 联合创作时点它是「关注歌手」列表（逐位关注），见 SongArtistSheets。
+                                 28×28 而不是 24×24：紧挨歌手名，太小容易点空。 -->
                             <Button x:Name="FollowArtistButton" IsVisible="{Binding CanFollowArtist}"
                                     FontFamily="MaterialIcons" Text="&#xE145;" Command="{Binding ToggleFollowArtistCommand}"
                                     BackgroundColor="Transparent" TextColor="{StaticResource Gray400}" FontSize="18"
-                                    Padding="0" WidthRequest="24" HeightRequest="24"
+                                    Padding="0" WidthRequest="28" HeightRequest="28"
                                     MinimumWidthRequest="0" MinimumHeightRequest="0" VerticalOptions="Center">
                                 <Button.Triggers>
                                     <DataTrigger TargetType="Button" Binding="{Binding IsArtistFollowed}" Value="True">
@@ -104,9 +129,10 @@
                         </HorizontalStackLayout>
                     </VerticalStackLayout>
                     <Button Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE83A;" Command="{Binding ToggleLikeCommand}"
+                            IsVisible="{Binding CanLike}"
                             BackgroundColor="Transparent" TextColor="{StaticResource Gray400}" FontSize="22"
                             Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0"
-                            VerticalOptions="Center">
+                            VerticalOptions="Start">
                         <Button.Triggers>
                             <DataTrigger TargetType="Button" Binding="{Binding IsLiked}" Value="True">
                                 <Setter Property="Text" Value="&#xE838;"/>
@@ -127,31 +153,34 @@
                            FontSize="11" TextColor="{StaticResource Gray400}" VerticalOptions="Center"/>
                 </Grid>
 
-                <Grid ColumnDefinitions="*,40,40,52,40,40,40,*" ColumnSpacing="6" Margin="0,12,0,0" HorizontalOptions="Center">
-                    <Button Grid.Column="1" FontFamily="MaterialIcons" Text="{Binding Player.PlayModeIcon}" Command="{Binding CyclePlayModeCommand}"
+                <!-- 播放控制栏：HorizontalStackLayout 自动居中；Android 上隐藏音量按钮（系统音量由
+                  物理键/系统音量条控制），剩余按钮自动重新排列，不会留下空档。 -->
+                <HorizontalStackLayout Spacing="6" Margin="0,12,0,0"
+                                       HorizontalOptions="Center" VerticalOptions="Center">
+                    <Button FontFamily="MaterialIcons" Text="{Binding Player.PlayModeIcon}" Command="{Binding CyclePlayModeCommand}"
                             BackgroundColor="Transparent" TextColor="White" FontSize="20"
-                            Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0"/>
-                    <Button Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE045;" Command="{Binding PreviousCommand}" BackgroundColor="Transparent"
-                            TextColor="White" FontSize="20" Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0"/>
-                    <Button Grid.Column="3" FontFamily="MaterialIcons" Text="{Binding Player.IsPlaying, Converter={StaticResource BoolToPlayPause}}"
-
+                            Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0" VerticalOptions="Center"/>
+                    <Button FontFamily="MaterialIcons" Text="&#xE045;" Command="{Binding PreviousCommand}" BackgroundColor="Transparent"
+                            TextColor="White" FontSize="20" Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0" VerticalOptions="Center"/>
+                    <Button FontFamily="MaterialIcons" Text="{Binding Player.IsPlaying, Converter={StaticResource BoolToPlayPause}}"
                             Command="{Binding ToggleCommand}" CornerRadius="26" HeightRequest="52" WidthRequest="52"
-                            BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}" FontSize="24" Padding="0" MinimumWidthRequest="0"/>
-                    <Button Grid.Column="4" FontFamily="MaterialIcons" Text="&#xE044;" Command="{Binding NextCommand}" BackgroundColor="Transparent"
-                            TextColor="White" FontSize="20" Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0"/>
-                    <Button Grid.Column="5" x:Name="VolumeButton" FontFamily="MaterialIcons" Text="&#xE050;" BackgroundColor="Transparent" TextColor="White" FontSize="18"
-                            Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0" Clicked="OnVolumeButtonClicked">
+                            BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}" FontSize="24" Padding="0" MinimumWidthRequest="0" VerticalOptions="Center"/>
+                    <Button FontFamily="MaterialIcons" Text="&#xE044;" Command="{Binding NextCommand}" BackgroundColor="Transparent"
+                            TextColor="White" FontSize="20" Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0" VerticalOptions="Center"/>
+                    <Button x:Name="VolumeButton" IsVisible="{OnPlatform Android=False, Default=True}"
+                            FontFamily="MaterialIcons" Text="&#xE050;" BackgroundColor="Transparent" TextColor="White" FontSize="18"
+                            Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0" VerticalOptions="Center"
+                            Clicked="OnVolumeButtonClicked">
                         <Button.Triggers>
                             <DataTrigger TargetType="Button" Binding="{Binding Player.Volume}" Value="0">
                                 <Setter Property="Text" Value="&#xE04F;"/>
                             </DataTrigger>
                         </Button.Triggers>
                     </Button>
-                    <Button Grid.Column="6" FontFamily="MaterialIcons" Text="&#xE03D;" Clicked="OnQueueClicked"
+                    <Button FontFamily="MaterialIcons" Text="&#xE03D;" Clicked="OnQueueClicked"
                             BackgroundColor="Transparent" TextColor="White" FontSize="18"
-                            Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0"/>
-
-                </Grid>
+                            Padding="0" WidthRequest="40" HeightRequest="40" MinimumWidthRequest="0" VerticalOptions="Center"/>
+                </HorizontalStackLayout>
             </VerticalStackLayout>
         </Grid>
 
@@ -233,24 +262,22 @@
                     </BoxView>
 
                     <Grid RowDefinitions="Auto,*,Auto">
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,14">
-                                <Label Text="播放列表" FontSize="18" FontAttributes="Bold" TextColor="White"/>
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="12,4">
+                                <Label Text="播放列表" FontSize="18" FontAttributes="Bold" TextColor="White"
+                                       VerticalOptions="End" VerticalTextAlignment="End"/>
                                 <Button Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE5CD;" Clicked="OnCloseQueueClicked"
-                                        BackgroundColor="Transparent" TextColor="{StaticResource Gray400}" FontSize="18" Padding="0" WidthRequest="36" HeightRequest="36"/>
+                                        BackgroundColor="Transparent" TextColor="{StaticResource Gray400}" FontSize="16" Padding="0" WidthRequest="28" HeightRequest="28"/>
                             </Grid>
                             <!-- SelectionMode=None + 显式 Tap：
                                  行内 PressFeedbackBehavior 的 PointerGestureRecognizer 在 Android 上会拦截触摸，
                                  CollectionView 的 SelectionChanged 收不到点击，改为显式 Tap 事件（与首页列表一致） -->
-                            <CollectionView Grid.Row="1" x:Name="QueueList" SelectionMode="None" Margin="0,4">
+                            <CollectionView Grid.Row="1" x:Name="QueueList" SelectionMode="None" Margin="0,0">
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate x:DataType="views:QueueItem">
                                         <Grid Padding="16,10" ColumnDefinitions="28,*,Auto,Auto" ColumnSpacing="8">
                                             <Grid.Behaviors>
-                                                <behaviors:PressFeedbackBehavior />
+                                                <behaviors:PressFeedbackBehavior Tapped="OnQueueItemTapped" />
                                             </Grid.Behaviors>
-                                            <Grid.GestureRecognizers>
-                                                <TapGestureRecognizer Tapped="OnQueueItemTapped"/>
-                                            </Grid.GestureRecognizers>
                                             <Label Grid.Column="0" Text="{Binding IndexText}" FontSize="13" TextColor="{StaticResource Gray400}"
                                                    VerticalOptions="Center" HorizontalTextAlignment="Center"/>
                                             <VerticalStackLayout Grid.Column="1" Spacing="1" Margin="10,0,0,0" VerticalOptions="Center">

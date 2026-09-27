@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using YinYanMusic.App.Services;
 using YinYanMusic.App.ViewModels;
+using YinYanMusic.Core;
 using YinYanMusic.Core.Dtos;
 
 namespace YinYanMusic.App.Views;
@@ -42,25 +43,33 @@ public partial class NowPlayingPage : ContentPage
 		VinylDisc.HandlerChanged += (_, _) => SetupLongPress();
 		CoverImage.HandlerChanged += (_, _) => SetupLongPress();
 		TitleLabel.HandlerChanged += (_, _) => SetupTitleLongPress();
+
+		// 两行跑马灯（歌名 / 歌手）：最小宽度不同 —— 歌名短时也要留出放徽标的位置，
+		// 歌手那行可以更紧。可用最大宽度由 OnSizeAllocated 按页面宽度算好填进来。
+		_titleMarquee = new MarqueeRow(TitleMarquee, MarqueeTrack, TitleLabel, MarqueeCopy, minWidth: 80);
+		_artistMarquee = new MarqueeRow(ArtistMarquee, ArtistTrack, ArtistLabel, ArtistCopy, minWidth: 40);
+
 		Loaded += OnPageLoaded;
 	}
-
-	private double _marqueeMaxWidth;        // 跑马灯可用最大宽度（页宽 - 预留音质标签空间）
 
 	protected override void OnSizeAllocated(double width, double height)
 	{
 		base.OnSizeAllocated(width, height);
-		// 歌名与音质标签是并排的：记录跑马灯可用最大宽度，
-		// 否则长歌名会把音质标签挤出屏幕（StackLayout 不会自动压缩子元素）。
-		if (width > 0)
-		{
-			var maxW = Math.Max(80, width - 170);
-			if (Math.Abs(_marqueeMaxWidth - maxW) > 0.5)
-			{
-				_marqueeMaxWidth = maxW;
-				RestartMarquee();
-			}
-		}
+		// 两行各自算可用宽度：歌名那行右边跟着音质/已缓存徽标，歌手那行右边跟着关注按钮。
+		// 不记录的话长文本会把右边的徽标/按钮挤出屏幕（StackLayout 不会自动压缩子元素）。
+		//
+		// 歌手那行的 122 是这么来的（少算一项，长歌手名就会顶到右侧按钮上）：
+		//   页面左右内边距 24×2 = 48 + 收藏按钮那一列 40 + 关注按钮 28 + 行内间距 6 = 122。
+		// 之前按「页宽 - 70」预留（只算了关注按钮），联合创作的长歌手名正好压到收藏/关注按钮上。
+		if (width <= 0) return;
+
+		var titleMax = Math.Max(80, width - 170);
+		var artistMax = Math.Max(60, width - 122);
+		if (Math.Abs(_titleMarquee.MaxWidth - titleMax) <= 0.5 && Math.Abs(_artistMarquee.MaxWidth - artistMax) <= 0.5) return;
+
+		_titleMarquee.MaxWidth = titleMax;
+		_artistMarquee.MaxWidth = artistMax;
+		RestartMarquee();
 	}
 
 	protected override void OnNavigatedTo(NavigatedToEventArgs args)
@@ -108,6 +117,8 @@ public partial class NowPlayingPage : ContentPage
 
 	private void OnPageLoaded(object? sender, EventArgs e)
 	{
+		// 基本动画：页面内容整体淡入
+		_ = RootGrid.FadeToAsync(1, 300, Easing.CubicOut);
 
 		SetupLongPress();
 		SetupTitleLongPress();
@@ -157,13 +168,73 @@ public partial class NowPlayingPage : ContentPage
 		a.Alpha + (b.Alpha - a.Alpha) * t);
 
 	private IDispatcherTimer? _marqueeTimer;
-	private double _marqueeUnit;           // 一个滚动周期宽度 = 歌名宽 + 间隔
 
-	/// <summary>重启歌名跑马灯：进入页面 / 切歌 / 页面尺寸变化时调用。文本未溢出容器时保持静止。</summary>
+	/// <summary>
+	/// 一行跑马灯（歌名一行、歌手一行）。容器裁剪 + 平移；文本不溢出时保持静止。
+	/// 抽成类是因为页面上有两行要用同一套逻辑 —— 复制一遍必然分叉（原来的实现只服务歌名一行）。
+	/// </summary>
+	private sealed class MarqueeRow(Grid viewport, HorizontalStackLayout track, Label label, Label copy, double minWidth)
+	{
+		public double MaxWidth { get; set; }          // 可用最大宽度（页面尺寸变化时更新）
+		private double Unit { get; set; }            // 一个滚动周期宽度 = 文本宽 + 间隔
+		private double Step { get; set; }
+
+		public void Reset() => track.TranslationX = 0;
+
+		/// <summary>测量文本并按需决定是否滚动；返回 true 表示这一行需要滚动。</summary>
+		public bool MeasureAndApply()
+		{
+			if (MaxWidth <= 0) return false;
+
+			// 无约束测量文本自然宽度（容器已裁剪，Label 实际渲染宽度会被压缩，所以要独立测量）
+			var textWidth = label.Measure(double.PositiveInfinity, double.PositiveInfinity).Width;
+			Unit = textWidth + track.Spacing;
+
+			// 容器宽度自适应：不溢出时紧贴文本宽度（后面的徽标/按钮始终紧跟文本），溢出时才占满可用宽度滚动
+			var scrolling = textWidth + 4 > MaxWidth;
+			viewport.WidthRequest = scrolling ? MaxWidth : Math.Max(minWidth, textWidth + 4);
+			copy.IsVisible = scrolling;   // 不滚动时隐藏副本，避免短文本重复显示两遍
+
+			if (!scrolling)
+			{
+				track.TranslationX = 0;
+				return false;
+			}
+
+			// 匀速滚动一个周期（文本+间隔）后瞬移复位 —— 内容周期化，复位点视觉无缝
+			var totalMs = Math.Clamp(Unit * 20, 2000, 12000);
+			Step = Unit / (totalMs / 16.0);
+			return true;
+		}
+
+		/// <summary>推进一帧。原生元素已销毁时返回 false（调用方据此停掉计时器）。</summary>
+		public bool Advance()
+		{
+			// Windows：直接关闭窗口时原生元素可能已销毁，触摸会抛 COMException
+			if (track.Handler is null) return false;
+			try
+			{
+				var x = track.TranslationX - Step;
+				if (x <= -Unit) x += Unit;
+				track.TranslationX = x;
+				return true;
+			}
+			catch (System.Runtime.InteropServices.COMException)
+			{
+				return false;
+			}
+		}
+	}
+
+	private MarqueeRow _titleMarquee = null!;
+	private MarqueeRow _artistMarquee = null!;
+
+	/// <summary>重启两行跑马灯：进入页面 / 切歌 / 页面尺寸变化时调用。</summary>
 	private void RestartMarquee()
 	{
 		StopMarquee();
-		MarqueeTrack.TranslationX = 0;
+		_titleMarquee.Reset();
+		_artistMarquee.Reset();
 		_ = RestartMarqueeAfterLayoutAsync();
 	}
 
@@ -172,46 +243,18 @@ public partial class NowPlayingPage : ContentPage
 		try
 		{
 			await Task.Delay(60);   // 等布局完成后再测量
-			if (_marqueeMaxWidth <= 0) return;
 
-			// 无约束测量文本自然宽度（容器已裁剪，Label 实际渲染宽度会被压缩，所以要独立测量）
-			var textWidth = TitleLabel.Measure(double.PositiveInfinity, double.PositiveInfinity).Width;
-			_marqueeUnit = textWidth + MarqueeTrack.Spacing;
+			// ⚠️ 两行都要测，不能用 || 短路（短路会跳过第二行，歌手就永远不滚）
+			var titleScrolling = _titleMarquee.MeasureAndApply();
+			var artistScrolling = _artistMarquee.MeasureAndApply();
+			if (!titleScrolling && !artistScrolling) return;
 
-			// 容器宽度自适应：不溢出时紧贴文本宽度（音质 badge 始终紧跟歌名），溢出时才占满可用宽度滚动
-			var scrolling = textWidth + 4 > _marqueeMaxWidth;
-			TitleMarquee.WidthRequest = scrolling ? _marqueeMaxWidth : Math.Max(80, textWidth + 4);
-
-			MarqueeCopy.IsVisible = scrolling;   // 不滚动时隐藏副本，避免短歌名重复显示两遍
-			if (!scrolling)
-			{
-				MarqueeTrack.TranslationX = 0;
-				return;
-			}
-
-			// 匀速滚动一个周期（歌名+间隔）后瞬移复位——内容周期化，复位点视觉无缝
-			var totalMs = Math.Clamp(_marqueeUnit * 20, 2000, 12000);
-			var step = _marqueeUnit / (totalMs / 16.0);
 			_marqueeTimer = Dispatcher.CreateTimer();
 			_marqueeTimer.Interval = TimeSpan.FromMilliseconds(16);
 			_marqueeTimer.Tick += (_, _) =>
 			{
-				// Windows：直接关闭窗口时原生元素可能已销毁，触摸会抛 COMException
-				if (MarqueeTrack.Handler is null)
-				{
-					StopMarquee();
-					return;
-				}
-				try
-				{
-					var x = MarqueeTrack.TranslationX - step;
-					if (x <= -_marqueeUnit) x += _marqueeUnit;
-					MarqueeTrack.TranslationX = x;
-				}
-				catch (System.Runtime.InteropServices.COMException)
-				{
-					StopMarquee();
-				}
+				// 任一行对应的原生元素已销毁就整体停掉（两行生命周期一致）
+				if (!_titleMarquee.Advance() || !_artistMarquee.Advance()) StopMarquee();
 			};
 			_marqueeTimer.Start();
 		}
@@ -221,24 +264,33 @@ public partial class NowPlayingPage : ContentPage
 		}
 	}
 
-	private bool token_source_cancelled() => _marqueeTimer is not null && false;
-
 	private void StopMarquee()
 	{
 		_marqueeTimer?.Stop();
 		_marqueeTimer = null;
 	}
 
+	/// <summary>
+	/// 点歌手那一行：单歌手直接进他的详情页；**联合创作先让用户挑一位** ——
+	/// 一首歌挂着好几个人，固定跳主歌手等于把其他合作者藏起来（用户想看的可能正是那一位）。
+	/// 挑人与跳转的实现放在 SongArtistSheets 里，歌曲「更多」菜单的同一项用的是它。
+	/// </summary>
 	private async void OnArtistTapped(object? sender, TappedEventArgs e)
 	{
-		var song = _vm.Player.Current;
-		if (song is null || song.ArtistId == 0) return;
-		await Shell.Current.GoToAsync($"artist?artistId={song.ArtistId}");
+		// 只认有 ID 的歌手：本地歌与离线缓存的索引里没有歌手 ID，跳过去也只会是空页面
+		var credits = SongArtistSheets.Followable(_vm.Player.Current);
+		if (credits.Count == 0) return;
+
+		var artistId = await SongArtistSheets.PickArtistAsync(credits);
+		if (artistId is long id) await Shell.Current.GoToAsync($"artist?artistId={id}");
 	}
 
 
 	private bool _titlePointerPressed;
 	private CancellationTokenSource? _titleLongPressCts;
+
+	/// <summary>逐个歌手那几条复制项的前缀（多歌手时才出现）。</summary>
+	private const string ArtistOptionPrefix = "复制歌手：";
 
 	private void SetupTitleLongPress()
 	{
@@ -291,24 +343,39 @@ public partial class NowPlayingPage : ContentPage
 			// 取 Current?.Title 而不是 CurrentTitle：后者在没歌时是"未在播放"的占位文案，
 			// 不该被复制出去（也顺带让"没歌时不显示复制选项"这条判断真的生效）。
 			var title = _vm.Player.Current?.Title ?? string.Empty;
+			var artists = _vm.Player.CurrentArtists;
 			var artist = _vm.Player.CurrentArtist;
 			var album = _vm.Player.CurrentAlbum;
-			if (string.IsNullOrEmpty(title) && string.IsNullOrEmpty(artist) && string.IsNullOrEmpty(album)) return;
+			if (string.IsNullOrEmpty(title) && artists.Count == 0 && string.IsNullOrEmpty(album)) return;
 
 			var options = new List<string>();
 			if (!string.IsNullOrEmpty(title)) options.Add("复制歌曲名");
-			if (!string.IsNullOrEmpty(artist)) options.Add("复制歌手名");
+			// 歌手：单歌手时照旧一条；**多歌手（联合创作）时展开** —— 除"全部"外每位歌手各一条。
+			// 复制整串（如"陈小春、陈国坤、…"）拿去搜索是搜不到的，用户要的通常是其中某一位。
+			if (artists.Count > 1)
+			{
+				options.Add("复制全部歌手");
+				foreach (var name in artists) options.Add(ArtistOptionPrefix + name);
+			}
+			else if (!string.IsNullOrEmpty(artist))
+			{
+				options.Add("复制歌手名");
+			}
 			if (!string.IsNullOrEmpty(album)) options.Add("复制专辑名");
 			if (options.Count == 0) return;
 
 			var picked = await SongMenuHelper.ShowBottomSheetAsync("选择复制", options);
-			var text = picked switch
+			string? text = picked switch
 			{
 				"复制歌曲名" => title,
-				"复制歌手名" => artist,
+				"复制歌手名" => artist,                                        // 单歌手（多歌手时不会出现这一项）
+				"复制全部歌手" => artists.Count > 0 ? string.Join(" / ", artists) : artist,
 				"复制专辑名" => album,
 				_ => null
 			};
+			// 逐个歌手那几条是动态文案（"复制歌手：Aimer"），没法写进 switch 的常量模式
+			if (text is null && picked is not null && picked.StartsWith(ArtistOptionPrefix, StringComparison.Ordinal))
+				text = picked[ArtistOptionPrefix.Length..];
 			if (string.IsNullOrEmpty(text)) return;
 
 #if WINDOWS
@@ -338,6 +405,9 @@ public partial class NowPlayingPage : ContentPage
 		{
 			_ = _vm.RefreshIsLikedAsync();
 			_ = _vm.RefreshAccentAsync();                         // 切歌后按新封面重算背景主色
+			// 切歌必须重算关注状态：VM 里缓存着"这首歌有哪几位歌手"，
+			// 不刷新的话联合创作那首的弹层会列上一首的歌手（关注按钮的状态同样会串台）。
+			_ = _vm.RefreshArtistFollowedAsync();
 			MainThread.BeginInvokeOnMainThread(RestartMarquee);   // 切歌后按新歌名重新评估跑马灯
 		}
 		else if (e.PropertyName == nameof(PlayerService.IsPlaying))
@@ -402,11 +472,35 @@ public partial class NowPlayingPage : ContentPage
 		VolumePopupOverlay.IsVisible = false;
 	}
 
+	/// <summary>
+	/// 打开评论面板（V2.9）。本地歌只在设备上、没有服务端记录（Id 是负数），
+	/// 评论要挂的 songId 根本不存在 —— 入口按钮已隐藏，这里再挡一道（命令式路径仍可能触发）。
+	/// </summary>
+	private async void OnCommentsClicked(object? sender, EventArgs e)
+	{
+		var song = _vm.Player.Current;
+		if (song is null) return;
+		if (song.IsLocal)
+		{
+			await SongMenuHelper.ShowToastAsync("本地音乐暂不支持评论", this);
+			return;
+		}
+		await SongMenuHelper.ShowCommentsAsync(song.Title, CommentTargets.Song, song.Id);
+	}
+
 	private void ShowCoverPreview()
 	{
 		var coverUrl = _vm.Player.CoverUrl;
 		if (string.IsNullOrEmpty(coverUrl)) return;
-		PreviewImage.Source = ImageSource.FromUri(new Uri(coverUrl));
+
+		// ⚠️ 不能用 ImageSource.FromUri(new Uri(coverUrl))：本地歌的封面是磁盘路径
+		// （/data/user/0/<pkg>/files/local-covers/x.jpg）或 content:// URI，
+		// FromUri 解析不了 → 预览一片空白（真机踩到）。
+		// 统一走 ImageSourceFactory，与列表封面同一份判断逻辑。
+		var src = ImageSourceFactory.From(coverUrl);
+		if (src is null) return;
+
+		PreviewImage.Source = src;
 		CoverPreviewOverlay.IsVisible = true;
 	}
 
@@ -522,16 +616,28 @@ public partial class NowPlayingPage : ContentPage
 		var coverUrl = _vm.Player.CoverUrl;
 		if (string.IsNullOrEmpty(coverUrl))
 		{
-			await SongMenuHelper.ShowMessageDialogAsync("提示", "1可保存的封面", "确定");
+			await SongMenuHelper.ShowMessageDialogAsync("提示", "当前歌曲没有可保存的封面", "确定");
 			return;
 		}
 
 		try
 		{
-			using var http = new HttpClient();
-			var bytes = await http.GetByteArrayAsync(coverUrl);
+			// 本地歌的封面在磁盘上（或 content://），HttpClient 取不到 —— 统一走工厂读字节。
+			var bytes = await ImageSourceFactory.ReadBytesAsync(coverUrl);
+			if (bytes is null || bytes.Length == 0)
+			{
+				await SongMenuHelper.ShowMessageDialogAsync("保存失败", "封面内容读取失败。", "确定");
+				return;
+			}
 
-			var rawName = $"{_vm.Player.CurrentTitle}-{_vm.Player.CurrentArtist}.jpg";
+			// 扩展名按实际字节判断，不再硬编码 .jpg（本地抽出的封面可能是 png/webp）
+			var ext = GuessImageExtension(bytes);
+			// 歌名-全部歌手（联合创作时把合作者都写进去）。
+			// 分隔符刻意用 "_" 而不是界面上的 " / "："/" 是路径分隔符，进文件名只会被下面清洗成占位下划线。
+			var artistText = _vm.Player.CurrentArtists.Count > 0
+				? string.Join("_", _vm.Player.CurrentArtists)
+				: _vm.Player.CurrentArtist;
+			var rawName = $"{_vm.Player.CurrentTitle}-{artistText}{ext}";
 			var fileName = string.Join("_", rawName.Split(Path.GetInvalidFileNameChars()));
 
 			var picturesDir = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
@@ -548,6 +654,21 @@ public partial class NowPlayingPage : ContentPage
 		}
 	}
 
+	/// <summary>按文件头判断图片类型（本地抽出的封面可能是 png/webp，不该一律存成 .jpg）。</summary>
+	private static string GuessImageExtension(byte[] bytes)
+	{
+		if (bytes.Length >= 8 &&
+			bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47)
+			return ".png";
+		if (bytes.Length >= 12 &&
+			bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
+			bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50)
+			return ".webp";
+		if (bytes.Length >= 3 && bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46)
+			return ".gif";
+		return ".jpg";
+	}
+
 	private async void OnQueueClicked(object? sender, EventArgs e)
 	{
 		var queue = _vm.Player.Queue;
@@ -559,7 +680,7 @@ public partial class NowPlayingPage : ContentPage
 			{
 				Index = i,
 				Title = queue[i].Title,
-				Artist = queue[i].ArtistName,
+				Artist = queue[i].ArtistsDisplay,   // 全部歌手（联合创作 → "Aimer / EGOIST"）
 				DurationSeconds = queue[i].DurationSeconds,
 				IsCurrent = i == _vm.Player.CurrentIndex
 			});
@@ -583,17 +704,17 @@ public partial class NowPlayingPage : ContentPage
 
 	private void OnQueueOverlayBackgroundTapped(object? sender, TappedEventArgs e) => QueueOverlay.IsVisible = false;
 
-	// 显式 Tap 事件（TappedEventArgs 无绑定参数，从 sender 拿 BindingContext）：
-	// SelectionChanged 在 Android 上被行内 PointerGestureRecognizer 吞掉，收不到。
-	private void OnQueueItemTapped(object? sender, TappedEventArgs e)
-	{
+    // 行点击走 PressFeedbackBehavior.Tapped（同一路指针事件判定"按下未移动即点击"）：
+    // 比独立 TapGestureRecognizer 可靠——后者在 CollectionView 里会把几像素漂移当滚动、吞掉点击。
+    private void OnQueueItemTapped(object? sender, EventArgs e)
+    {
 		if ((sender as BindableObject)?.BindingContext is QueueItem item)
 		{
 			System.Diagnostics.Debug.WriteLine($"[Queue] tap item index={item.Index}, title={item.Title}");
 			_vm.Player.PlayAt(item.Index);
 			QueueOverlay.IsVisible = false;
 		}
-	}
+    }
 
 	protected override void OnNavigatedFrom(NavigatedFromEventArgs args)
 	{

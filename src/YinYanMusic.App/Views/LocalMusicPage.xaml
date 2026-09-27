@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:local="clr-namespace:YinYanMusic.App.Services.LocalLibrary"
+             xmlns:views="clr-namespace:YinYanMusic.App.Views"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             x:Class="YinYanMusic.App.Views.LocalMusicPage"
+             x:Name="RootPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}"
+             Title="本地音乐">
+
+    <!-- ⚠️ 必须有**唯一的根容器**：ContentPage 只接受一个 Content 子元素。
+         之前把 QueueOverlay 直接挂在 ContentPage 下（与内容 Grid 并列），
+         导致整页布局失效、进入本页一片空白（真机踩到）。
+         MainPage 也是同样的"单根 Grid + 浮窗放里面"结构。 -->
+    <Grid>
+
+    <!-- V2.6：本地音乐页自带的播放器内核。
+         登录页可以**未登录**直达本页，此时 MainPage 从未被创建、它里面的 MediaElement
+         也就不存在，PlayerService._player 为 null → 点了歌不出声。
+
+         ⚠️ 必须放在 Grid **内部**（Grid.RowSpan 覆盖全行）：ContentPage 只对 Content
+         （第一个子元素）做布局，把 MediaElement 直接挂在 ContentPage 下会变成没有尺寸的
+         游离子元素，从不附着到视觉树 —— 表现为 ExoPlayer 被创建、MediaSession 报 PLAYING、
+         进度条照跑，但**全程没有声音**（AudioOut 线程始终 Standby、0 条 active track）。
+         真机实测踩过这个坑，改成与 MainPage 同样的"放进 Grid 内"即可出声。 -->
+    <Grid RowDefinitions="*,Auto">
+
+        <!-- 内容区：原来的 6 行 Grid。迷你播放条独立成第二行，
+             这样它不受内容 Grid 的 Padding/RowSpacing 影响，进度条不会被挤掉。 -->
+        <Grid Grid.Row="0" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Padding="16,12,16,0" RowSpacing="12">
+
+        <toolkit:MediaElement x:Name="Player" Grid.Row="0" Grid.RowSpan="6"
+                              WidthRequest="1" HeightRequest="1"
+                              HorizontalOptions="End" VerticalOptions="Start"
+                              InputTransparent="True" ShouldAutoPlay="True"/>
+
+        <!-- 顶部：返回 + 标题 + 搜索开关（与我的歌单/歌单详情同一套导航样式） -->
+        <!-- 顶部：返回 + 标题 + 搜索开关。
+             第三列用 Auto 而非固定 40：展开态的「取消」是文字按钮（Padding 16,0），
+             实际宽度远超 40px，写死会让文字被裁掉一部分（真机反馈）。
+             歌单详情页同样是 *,Auto 的写法。 -->
+        <Grid Grid.Row="0" ColumnDefinitions="40,*,Auto" VerticalOptions="Center">
+            <Button Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
+                    Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+            <Label Grid.Column="1" Text="本地音乐" FontSize="20" FontAttributes="Bold"
+                   HorizontalOptions="Center" VerticalOptions="Center"/>
+            <Button Grid.Column="2" Style="{StaticResource SearchToggleButton}"
+                    FontFamily="MaterialIcons" Text="&#xE8B6;" Command="{Binding ToggleSearchCommand}"
+                    WidthRequest="40"
+                    IsVisible="{Binding IsSearchVisible, Converter={StaticResource InverseBool}}"/>
+            <Button Grid.Column="2" Style="{StaticResource SearchToggleButton}"
+                    Text="取消" FontSize="14" Padding="16,0" Command="{Binding ToggleSearchCommand}"
+                    IsVisible="{Binding IsSearchVisible}"/>
+        </Grid>
+
+        <!-- 曲库概览：数量 / 总时长 / 本地播放次数 -->
+        <Label Grid.Row="1" Text="{Binding StatusText}" FontSize="12" TextColor="{StaticResource Gray500}"/>
+
+        <!-- 搜索框：默认收起，点放大镜展开（与歌单详情页同一套 SurfaceSearch 样式） -->
+        <Border Grid.Row="2" Style="{StaticResource SurfaceSearch}" Padding="16,0" HeightRequest="48"
+                IsVisible="{Binding IsSearchVisible}">
+            <Grid ColumnDefinitions="24,10,*,8,24" VerticalOptions="Center">
+                <Label Grid.Column="0" Style="{StaticResource SearchGlyphLabel}"/>
+                <Entry Grid.Column="2" Style="{StaticResource SearchEntry}"
+                       Placeholder="搜索标题、歌手或专辑"
+                       Text="{Binding SearchKeyword}" ReturnType="Search"/>
+                <Button Grid.Column="4" Style="{StaticResource SearchClearButton}"
+                        IsVisible="{Binding IsSearchActive}" Command="{Binding ClearSearchCommand}"/>
+            </Grid>
+        </Border>
+
+        <!-- 操作行：扫描 / 播放全部 / 随机。曲库为空时只留"扫描"（其余按钮点了没意义） -->
+        <VerticalStackLayout Grid.Row="3" Spacing="10">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                <Button Grid.Column="0" Text="⟳  扫描本地音乐" Command="{Binding ScanCommand}"
+                        CornerRadius="20" BackgroundColor="{DynamicResource Primary}"
+                        TextColor="{DynamicResource OnPrimary}" HeightRequest="40" FontSize="15"
+                        IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBool}}"/>
+                <Button Grid.Column="1" Text="▶ 播放全部" Command="{Binding PlayAllCommand}"
+                        CornerRadius="20" BackgroundColor="{StaticResource CardBackground}"
+                        TextColor="{DynamicResource Accent}" HeightRequest="40" Padding="16,0"
+                        IsVisible="{Binding HasSongs}"/>
+                <Button Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE043;" Command="{Binding ShuffleCommand}"
+                        CornerRadius="20" BackgroundColor="{StaticResource CardBackground}"
+                        TextColor="{DynamicResource Accent}" HeightRequest="40" WidthRequest="44" Padding="0"
+                        IsVisible="{Binding HasSongs}"/>
+            </Grid>
+            <Label Text="{Binding ScanDescription}" FontSize="11" TextColor="{StaticResource Gray400}"/>
+            <!-- 扫描进度：扫描期间常驻，结束后自动隐藏 -->
+            <HorizontalStackLayout Spacing="8" IsVisible="{Binding IsScanning}">
+                <ActivityIndicator IsRunning="{Binding IsScanning}" Color="{DynamicResource Accent}"
+                                   WidthRequest="16" HeightRequest="16" VerticalOptions="Center"/>
+                <Label Text="{Binding ScanProgress}" FontSize="12" TextColor="{StaticResource Gray500}"
+                       VerticalOptions="Center"/>
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+
+        <!-- 曲目列表 -->
+        <CollectionView Grid.Row="4" ItemsSource="{Binding Songs}" SelectionMode="None">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout Padding="0,40" Spacing="8">
+                    <!-- 两种空态分开提示：搜不到 vs 曲库本身就空 -->
+                    <Label Text="没有找到匹配的歌曲" TextColor="{StaticResource Gray500}"
+                           HorizontalOptions="Center" IsVisible="{Binding IsSearchEmpty}"/>
+                    <Label Text="试试其它关键词，或清空搜索框" FontSize="12" TextColor="{StaticResource Gray300}"
+                           HorizontalOptions="Center" IsVisible="{Binding IsSearchEmpty}"/>
+
+                    <Label FontFamily="MaterialIcons" Text="&#xE405;" FontSize="48"
+                           TextColor="{StaticResource Gray300}" HorizontalOptions="Center"
+                           IsVisible="{Binding IsLibraryEmpty}"/>
+                    <Label Text="本地曲库还是空的" TextColor="{StaticResource Gray500}"
+                           HorizontalOptions="Center" IsVisible="{Binding IsLibraryEmpty}"/>
+                    <Label Text="点上方「扫描本地音乐」把设备里的歌导进来，之后离线也能听"
+                           FontSize="12" TextColor="{StaticResource Gray300}"
+                           HorizontalOptions="Center" HorizontalTextAlignment="Center"
+                           IsVisible="{Binding IsLibraryEmpty}"/>
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="local:LocalSong">
+                    <Grid Padding="4,10" ColumnDefinitions="40,*,Auto,Auto" ColumnSpacing="10">
+                        <Grid.Behaviors>
+                            <behaviors:PressFeedbackBehavior />
+                        </Grid.Behaviors>
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.PlaySongCommand}"
+                                CommandParameter="{Binding .}"/>
+                        </Grid.GestureRecognizers>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroupList>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Property="Opacity" Value="0.5"/>
+                                            <Setter Property="Scale" Value="0.97"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateGroupList>
+                        </VisualStateManager.VisualStateGroups>
+
+                        <!-- 封面：内嵌封面已抽到 AppData，没有则回退占位图标 -->
+                        <Grid Grid.Column="0" HeightRequest="40" WidthRequest="40" InputTransparent="True">
+                            <Frame CornerRadius="4" Padding="0" IsClippedToBounds="True"
+                                   HeightRequest="40" WidthRequest="40"
+                                   BackgroundColor="{StaticResource Gray300}">
+                                <Label FontFamily="MaterialIcons" Text="&#xE405;" FontSize="18"
+                                       TextColor="{StaticResource Gray500}"
+                                       HorizontalOptions="Center" VerticalOptions="Center"/>
+                            </Frame>
+                            <Frame CornerRadius="4" Padding="0" IsClippedToBounds="True"
+                                   HeightRequest="40" WidthRequest="40" BackgroundColor="Transparent"
+                                   IsVisible="{Binding CoverPath, Converter={StaticResource StringNotEmpty}}">
+                                <Image Source="{Binding CoverPath, Converter={StaticResource AbsoluteUrl}}"
+                                       Aspect="AspectFill"/>
+                            </Frame>
+                        </Grid>
+
+                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                            <Label Text="{Binding Title}" FontSize="15" LineBreakMode="TailTruncation"/>
+                            <Label FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <!-- 歌手为空时不要显示一个孤零零的 " - " -->
+                                        <Span Text="{Binding ArtistName}"/>
+                                        <Span Text=" · "/>
+                                        <Span Text="{Binding AlbumName}"/>
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                        </VerticalStackLayout>
+
+                        <!-- 本地播放次数（只记本地，永不上报） -->
+                        <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center"
+                                             HorizontalOptions="End">
+                            <Label Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
+                                   FontSize="12" TextColor="{StaticResource Gray500}" HorizontalTextAlignment="End"/>
+                            <Label FontSize="11" TextColor="{StaticResource Gray400}" HorizontalTextAlignment="End">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="播放 "/>
+                                        <Span Text="{Binding LocalPlayCount}"/>
+                                        <Span Text=" 次"/>
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                        </VerticalStackLayout>
+
+                        <!-- ⋮ 更多：VSM 必须**内联**在这里，不能依赖样式 ——
+                             样式里的 VisualStateGroupList 是所有按钮共享的同一个实例，
+                             按下某一行的按钮会让其他行的同类按钮一起进入 Pressed 态。
+                             内联在 DataTemplate 里则是每行一份实例，互不影响。 -->
+                        <Button Grid.Column="3" Style="{StaticResource ListItemIconButton}"
+                                Text="&#xE5D4;" TextColor="{StaticResource Gray500}"
+                                Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.ShowMenuCommand}"
+                                CommandParameter="{Binding .}">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroupList>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Property="Opacity" Value="0.45" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateGroupList>
+                            </VisualStateManager.VisualStateGroups>
+                        </Button>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <ActivityIndicator Grid.Row="5" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                           Color="{DynamicResource Accent}"/>
+        </Grid>
+
+        <!-- 迷你播放条（复用 MainPage 抽出的组件）：播放本地歌后常驻页脚，
+             让用户在列表里就能控制播放、点进播放页。
+             不做负 Margin：组件自带左右 14 的 Padding，贴边即可。 -->
+        <views:MiniPlayerView Grid.Row="1" x:Name="MiniPlayer"/>
+    </Grid>
+
+    <!-- 播放队列浮窗（与 MainPage 同一套样式）。放在本页而非组件内：
+         浮窗要盖住整页，而组件的布局上下文只在页脚那一行。 -->
+    <Grid x:Name="QueueOverlay" IsVisible="False" BackgroundColor="#80000000">
+        <Grid.GestureRecognizers>
+            <TapGestureRecognizer Tapped="OnOverlayBackgroundTapped"/>
+        </Grid.GestureRecognizers>
+        <Border Style="{StaticResource SurfaceCard}" Padding="0" HeightRequest="420"
+                VerticalOptions="End" Margin="0" BackgroundColor="{StaticResource CardBackground}"
+                StrokeThickness="1" Stroke="#3FFFFFFF">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,14">
+                    <Label Text="播放列表" FontSize="18" FontAttributes="Bold"/>
+                    <Button Grid.Column="1" FontFamily="MaterialIcons" Text="&#xE5CD;" Clicked="OnCloseQueueClicked"
+                            BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="18"
+                            Padding="0" WidthRequest="36" HeightRequest="36"
+                            MinimumWidthRequest="0" MinimumHeightRequest="0"/>
+                </Grid>
+                <!-- SelectionMode=None + 显式 Tap：原因见 NowPlayingPage 同名列表注释 -->
+                <CollectionView Grid.Row="1" x:Name="QueueList" SelectionMode="None" Margin="0,4">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="views:QueueItem">
+                            <Grid Padding="16,10" ColumnDefinitions="28,*,Auto,Auto" ColumnSpacing="8">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnQueueItemTapped"/>
+                                </Grid.GestureRecognizers>
+                                <Label Grid.Column="0" Text="{Binding IndexText}" FontSize="13"
+                                       TextColor="{StaticResource Gray500}" VerticalOptions="Center"
+                                       HorizontalTextAlignment="Center"/>
+                                <VerticalStackLayout Grid.Column="1" Spacing="1" Margin="10,0,0,0" VerticalOptions="Center">
+                                    <Label Text="{Binding Title}" FontSize="14" LineBreakMode="TailTruncation"/>
+                                    <Label Text="{Binding Artist}" FontSize="12" TextColor="{StaticResource Gray500}"
+                                           LineBreakMode="TailTruncation"/>
+                                </VerticalStackLayout>
+                                <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
+                                       FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                                <Label Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE037;" FontSize="14"
+                                       TextColor="{DynamicResource Accent}" VerticalOptions="Center"
+                                       IsVisible="{Binding IsCurrent}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+                <Label Grid.Row="2" x:Name="QueueCountLabel" FontSize="12"
+                       TextColor="{StaticResource Gray500}" Padding="16,8"/>
+            </Grid>
+        </Border>
+    </Grid>
+    </Grid>
+</ContentPage>

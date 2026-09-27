@@ -1,3 +1,4 @@
+using YinYanMusic.Core;
 using YinYanMusic.Core.Dtos;
 
 namespace YinYanMusic.App.ViewModels;
@@ -13,5 +14,8 @@ internal static class ZoneQuery
         $"&name={Uri.EscapeDataString(zone.Name)}" +
         $"&slogan={Uri.EscapeDataString(zone.Slogan ?? string.Empty)}" +
         $"&colorHex={Uri.EscapeDataString(zone.ColorHex ?? string.Empty)}" +
-        $"&icon={Uri.EscapeDataString(zone.IconGlyph ?? string.Empty)}";
+        $"&icon={Uri.EscapeDataString(zone.IconGlyph ?? string.Empty)}" +
+        // 内容类型（both/songs/playlists）：决定详情页展示哪几段。顺带带上，免得多请求一次分区列表。
+        // Normalize 兜底：脏值一律当 both —— 宁可多显示一段，也别让专区变成空白页。
+        $"&mode={Uri.EscapeDataString(CategoryContentModes.Normalize(zone.ContentMode))}";
 }

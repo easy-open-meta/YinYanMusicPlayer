@@ -18,17 +18,18 @@ public class WindowsAcrylicImageService : IAcrylicImageService
 
     public async Task<ImageSource?> CreateAsync(string? coverUrl, CancellationToken ct = default)
     {
-        var url = ApiConfig.Absolute(coverUrl);
-        if (string.IsNullOrWhiteSpace(url)) return null;
-        if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return null;
+        if (string.IsNullOrWhiteSpace(coverUrl)) return null;
 
-        if (_cache.TryGetValue(url, out var cached)) return cached;
+        // V2.13：字节来源统一走 ImageSourceFactory —— 本地歌（Windows 上是盘符路径）
+        // 原先会被 ApiConfig.Absolute 拼成 http://host/C:/... 后 404，或者被"必须 http 开头"的
+        // 守卫直接挡掉，于是本地歌永远没有底图。缓存键用原始地址（理由同 Android 侧）。
+        if (_cache.TryGetValue(coverUrl, out var cached)) return cached;
 
         ImageSource? result = null;
         try
         {
-            var bytes = await Http.GetByteArrayAsync(url, ct);
-            if (bytes.Length == 0) return null;
+            var bytes = await ImageSourceFactory.ReadBytesAsync(coverUrl, Http, ct);
+            if (bytes is null || bytes.Length == 0) return null;
 
             var size = AcrylicDefaults.Size;
             var rgba = await DecodeSmallAsync(bytes, size, ct);
@@ -58,7 +59,7 @@ public class WindowsAcrylicImageService : IAcrylicImageService
             return null;   // 取不到就退化成纯遮罩，不影响浮窗可用性
         }
 
-        _cache[url] = result;
+        _cache[coverUrl] = result;
         return result;
     }
 

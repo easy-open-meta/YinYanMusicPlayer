@@ -13,8 +13,9 @@
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
-    <PackageReference Include="TagLibSharp" />
     <PackageReference Include="z440.atl.core" />
+    <!-- V2.5 邮箱验证码：System.Net.Mail.SmtpClient 已被官方标记过时，用 MailKit。 -->
+    <PackageReference Include="MailKit" />
   </ItemGroup>
 
   <ItemGroup>

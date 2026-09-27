@@ -1,0 +1,37 @@
+/* Material Icons 字体（从 MAUI 客户端 Resources/Fonts 复用同一份文件）。
+ *
+ * ⚠️ 为什么后台前端需要它：
+ * Categories 表的 IconGlyph 存的是 Material Icons 的**私有区码点**
+ * （如 U+E405 = music_note、U+E87D = favorite），由 MAUI 客户端用
+ * <Label FontFamily="MaterialIcons" Text="{Binding IconGlyph}" /> 渲染。
+ * 后台前端原先用 <el-icon>{{ iconGlyph }}</el-icon> —— Element Plus 的 el-icon
+ * 是 SVG 图标系统，不认私有区码点，于是图标列显示成豆腐块/问号。
+ *
+ * 修法：保持数据语义不变（13 个 MAUI 页面依赖它），前端用同一套字体渲染。
+ */
+@font-face {
+  font-family: 'Material Icons';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  /* 相对本 CSS 文件（src/styles/）解析，故用 ../assets/fonts/ */
+  src: url('../assets/fonts/MaterialIcons-Regular.ttf') format('truetype');
+}
+
+/* 图标字形：配合 Material Icons 的连字/码点渲染 */
+.material-icon {
+  font-family: 'Material Icons', sans-serif;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'liga';
+}

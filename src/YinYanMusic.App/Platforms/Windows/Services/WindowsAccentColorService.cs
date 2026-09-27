@@ -15,14 +15,13 @@ public class WindowsAccentColorService : IAccentColorService
 
     public async Task<Color?> ExtractAsync(string? imageUrl, CancellationToken ct = default)
     {
-        var url = ApiConfig.Absolute(imageUrl);
-        if (string.IsNullOrWhiteSpace(url)) return null;
-        if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return null;
+        if (string.IsNullOrWhiteSpace(imageUrl)) return null;
 
         try
         {
-            var bytes = await Http.GetByteArrayAsync(url, ct);
-            if (bytes.Length == 0) return null;
+            // V2.13：与 Android 端同因同修 —— 本地歌（盘符路径）原先取不到主色、静默回默认色。
+            var bytes = await ImageSourceFactory.ReadBytesAsync(imageUrl, Http, ct);
+            if (bytes is null || bytes.Length == 0) return null;
 
             using var stream = new InMemoryRandomAccessStream();
             using (var writer = new DataWriter(stream))

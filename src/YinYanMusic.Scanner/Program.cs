@@ -97,7 +97,7 @@ static async Task<int> CheckDatabaseAsync(MusicDbContext db)
     catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UndefinedTable)
     {
         Console.Error.WriteLine("数据库里没有 Songs 表（42P01），已终止导入。");
-        Console.Error.WriteLine("  1) 先用 Api 启动一次，让 EnsureCreated 按当前模型建表；");
+        Console.Error.WriteLine("  1) 先用 Api 启动一次，由 EF 迁移（Migrate）按当前模型建表；");
         Console.Error.WriteLine("  2) 或把 ConnectionStrings:Default 指向一个全新的数据库名；");
         Console.Error.WriteLine("  3) 如果该库属于别的后端（表名是 snake_case 的 songs 等），不要直接复用。");
         return 2;

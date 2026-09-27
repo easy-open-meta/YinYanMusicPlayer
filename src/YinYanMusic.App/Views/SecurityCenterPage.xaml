@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             x:Class="YinYanMusic.App.Views.SecurityCenterPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <Grid RowDefinitions="Auto,*" Padding="16,12" RowSpacing="8">
+
+        <Grid Grid.Row="0" ColumnDefinitions="40,*,40" VerticalOptions="Center">
+            <Button Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
+                    Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+            <Label Grid.Column="1" Text="安全中心" FontSize="20" FontAttributes="Bold"
+                   HorizontalOptions="Center" VerticalOptions="Center"/>
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="14" Padding="0,4,0,20">
+
+                <!-- 选项列表：与汉堡抽屉同一套「图标 + 标题 + 副标题 + 右箭头」语言 -->
+                <Border Style="{StaticResource SurfaceCard}" Padding="6">
+                    <VerticalStackLayout Spacing="0">
+
+                        <!-- 修改密码 -->
+                        <Grid Padding="16,14" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                            <Grid.Behaviors>
+                                <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                            </Grid.Behaviors>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenChangePasswordCommand}"/>
+                            </Grid.GestureRecognizers>
+                            <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE897;" FontSize="22"
+                                   TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                <Label Text="修改密码" FontSize="16"/>
+                                <Label Text="修改后所有设备需重新登录" FontSize="12"
+                                       TextColor="{StaticResource Gray500}"/>
+                            </VerticalStackLayout>
+                            <Label Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE5CC;" FontSize="20"
+                                   TextColor="{StaticResource Gray400}" VerticalOptions="Center"/>
+                        </Grid>
+
+                        <BoxView HeightRequest="1" BackgroundColor="{DynamicResource CardBorder}" Margin="16,0"/>
+
+                        <!-- 邮箱绑定：SMTP 未配置时置灰不可点 -->
+                        <Grid Padding="16,14" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14"
+                              IsEnabled="{Binding CanOpenEmail}">
+                            <Grid.Behaviors>
+                                <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                            </Grid.Behaviors>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenBindEmailCommand}"/>
+                            </Grid.GestureRecognizers>
+                            <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE0BE;" FontSize="22"
+                                   TextColor="{DynamicResource Accent}" VerticalOptions="Center"/>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                <Label Text="邮箱绑定" FontSize="16"/>
+                                <Label Text="{Binding EmailSummary}" FontSize="12"
+                                       TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+                            </VerticalStackLayout>
+                            <Label Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE5CC;" FontSize="20"
+                                   TextColor="{StaticResource Gray400}" VerticalOptions="Center"/>
+                        </Grid>
+
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 邮箱不可用时的补充说明 -->
+                <Label Text="服务器未配置邮件服务，邮箱绑定暂不可用。" FontSize="12"
+                       TextColor="{StaticResource Gray500}"
+                       IsVisible="{Binding EmailBindingAvailable, Converter={StaticResource InverseBool}}"/>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" IsVisible="{Binding IsBusy}" BackgroundColor="#40000000">
+            <ActivityIndicator IsRunning="{Binding IsBusy}" Color="{DynamicResource Accent}"
+                               HorizontalOptions="Center" VerticalOptions="Center"/>
+        </Grid>
+    </Grid>
+</ContentPage>

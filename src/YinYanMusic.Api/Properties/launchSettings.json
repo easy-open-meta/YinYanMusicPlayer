@@ -5,6 +5,7 @@
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": false,
+      "launchUrl": "scalar/v1",
       "applicationUrl": "http://0.0.0.0:5116",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"

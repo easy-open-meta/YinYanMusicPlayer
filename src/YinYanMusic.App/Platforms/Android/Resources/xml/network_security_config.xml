@@ -1,12 +1,29 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-  Android 明文访问控制（M0.5 起）：
-    - 默认 API 地址是 HTTPS 域名（见 ApiConfig.DefaultBaseUrl），**不走明文**，无需在此放行。
-    - Release 严格：仅下列域名放行 http（手动切回局域网后端时用），其它服务器一律走 https。
-    - Debug 开放：用户在设置页改了服务器地址后能连任何内网 IP。
-  ⚠️ 切到真正的生产环境时：
-    - 把下面 <domain-config> 换成生产域名并改用 https
-    - 或者移除 <domain-config>，强制全 https
+  Android 明文访问控制（M0.5 起；2026-09-22 修正"Debug 全开"失效的缺陷）
+
+  ⚠️ 曾经的写法是在这里放：
+        <debug-overrides><base-config cleartextTrafficPermitted="true" /></debug-overrides>
+     并注释"Debug 包 http 全开"。**那是无效配置**：Android 官方文档明确
+     `<debug-overrides>` 的合法子元素只有 `<trust-anchors>`（它只用于追加调试版信任证书，
+     不能改明文策略）。所以 Debug 包实际上从来没"全开"过 ——
+     真机连 http://<局域网 IP>:5116 会被明文策略拦掉，报错只有一句笼统的
+     "Connection failure"（.NET 把 Java 层的 IOException 包了一层），极难排查。
+
+  现在的分工（明文许可由谁说了算，务必记清）：
+    · **一旦声明了 networkSecurityConfig，明文许可就完全由 nsc 决定** ——
+      AndroidManifest 的 android:usesCleartextTraffic **会被忽略**（官方文档明确）。
+      所以"Debug 全开 / Release 严格"是靠**换文件**实现的：
+      Debug 用 `network_security_config_debug.xml`（base 全开），
+      Release 用**本文件**（base 关闭 + 少量本地例外）。
+      由 csproj 的 AndroidManifestPlaceholders（占位符 ${nscRes}）选择引用哪一个。
+    · 因此本文件的 <base-config> 必须**显式**写 cleartextTrafficPermitted="false" ——
+      不写虽然默认也是 false（targetSdk ≥ 28），但显式写出来才不会被人误改成"继承 manifest"。
+    · <domain-config> 优先级高于 base-config，可以给个别地址开口子（见下）。
+
+  保持 Release 严格：默认只走 HTTPS，只有下面这几个本地地址例外。
+  要让 Release 包也连某个局域网后端，把它的 IP 加进下面的 domain-config 即可
+  （注意开发机 IP 是 DHCP 分配的、会变，所以更适合用 Debug 包联调）。
 -->
 <network-security-config>
 	<base-config cleartextTrafficPermitted="false">
@@ -15,20 +32,28 @@
 		</trust-anchors>
 	</base-config>
 
-	<!-- 开发/调试 LAN 后端（明文 HTTP）。
-	     ⚠️ 这里曾通过 <certificates src="@raw/yinyan_local" /> 信任自签名开发证书，
-	     已于 2026-09-17 移除：API 不再自建 HTTPS（生产由 Nginx 反代终结 TLS），
-	     且该 raw 证书被 .gitignore 排除、不入库 —— 留着会让干净检出/CI 的 APK 构建
-	     因找不到 @raw/yinyan_local 资源而失败。 -->
-	<domain-config cleartextTrafficPermitted="true">
-		<domain includeSubdomains="false">10.26.218.85</domain>
+	<!-- 生产域名：即使 Release 的 base 是 false，这里再显式声明一次，意图更明确。 -->
+	<domain-config cleartextTrafficPermitted="false">
+		<domain includeSubdomains="true">yinyan.oscode.top</domain>
 		<trust-anchors>
 			<certificates src="system" />
 		</trust-anchors>
 	</domain-config>
 
-	<!-- Debug 包放开：http 全开 —— 用户在设置页改了服务器地址能立刻连通任意内网。 -->
-	<debug-overrides>
-		<base-config cleartextTrafficPermitted="true" />
-	</debug-overrides>
+	<!-- 本地/局域网后端（明文 HTTP）：显式放行，Debug 与 Release 都可用。
+	     10.0.2.2 = Android 模拟器访问宿主机的地址；127.0.0.1 / localhost 配合
+	     `adb reverse tcp:5116 tcp:5116` 可以在 USB 连接下访问电脑上的 API
+	     （不受局域网 IP 变化与系统策略影响，是最稳的联调方式）。
+
+	     ⚠️ 历史遗留：这里曾放行 10.26.218.85（旧开发机 IP），2026-09-22 移除 ——
+	     IP 由 DHCP 分配会变，写死只会变成"过期的假白名单"。
+	     Debug 包连任意内网地址靠 manifest 的 usesCleartextTraffic=true，不需要在这里维护 IP。 -->
+	<domain-config cleartextTrafficPermitted="true">
+		<domain includeSubdomains="false">10.0.2.2</domain>
+		<domain includeSubdomains="false">127.0.0.1</domain>
+		<domain includeSubdomains="false">localhost</domain>
+		<trust-anchors>
+			<certificates src="system" />
+		</trust-anchors>
+	</domain-config>
 </network-security-config>

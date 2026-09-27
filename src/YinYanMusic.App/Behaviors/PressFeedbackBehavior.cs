@@ -8,7 +8,6 @@ namespace YinYanMusic.App.Behaviors;
 /// 挂在内层内容布局上时，只有内层文字在缩、表面纹丝不动，看起来就是「没有动效」。
 ///
 /// 走指针事件（PointerGestureRecognizer），Windows 鼠标/触摸与 Android 触摸都生效。
-/// ⚠️ 指针事件在 Android 上会**拦截触摸**，所以 TapGestureRecognizer 必须和它挂在同一个元素上。
 ///
 /// 三处刻意的取舍，都是为了让反馈「不会偶尔看不见」：
 /// 1) 按下态**立即生效**、不做渐入。原来是 ScaleTo(…, 60)：快速轻点可能一帧都没渲染出来就抬手了。
@@ -24,6 +23,7 @@ public class PressFeedbackBehavior : Behavior<View>
     private bool _pressed;
     private long _pressedAtTicks;
     private int _generation;
+    private Point? _pressedPoint;
 
     /// <summary>按下时的缩放比例。</summary>
     public double PressedScale { get; set; } = 0.96;
@@ -36,6 +36,17 @@ public class PressFeedbackBehavior : Behavior<View>
 
     /// <summary>回弹毫秒数。</summary>
     public int ReleaseMs { get; set; } = 150;
+
+    /// <summary>判定为「点击」的最大位移（与按下点的平面距离，单位同布局，即 dp）。
+    /// 超过则视为拖动/滚动，不触发 <see cref="Tapped"/>。</summary>
+    public double TapSlop { get; set; } = 14;
+
+    /// <summary>
+    /// 「按下后几乎没移动就松开」时触发，sender 为被附加的视图（其 BindingContext 即该行数据）。
+    /// 没订阅时此行为不影响原有按压动效。用于可滚动列表里替代独立 TapGestureRecognizer ——
+    /// 后者在 Android 上会把几像素的指尖漂移当小幅滚动、吞掉点击，表现成「点很多次才中一次」。
+    /// </summary>
+    public event EventHandler? Tapped;
 
     protected override void OnAttachedTo(View bindable)
     {
@@ -68,15 +79,40 @@ public class PressFeedbackBehavior : Behavior<View>
         _generation++;
         _pressed = true;
         _pressedAtTicks = Environment.TickCount64;
+        _pressedPoint = e.GetPosition(_attached);
 
         // 立刻进入按下态（不渐入）：保证极短的点击也有一帧可见反馈
         _attached.Scale = PressedScale;
         _attached.Opacity = PressedOpacity;
     }
 
-    private void OnPointerReleased(object? sender, PointerEventArgs e) => Release();
+    private void OnPointerReleased(object? sender, PointerEventArgs e)
+    {
+        var released = e.GetPosition(_attached);
 
-    // 按住后移出区域：取消按压态，且不触发点击（由 TapGestureRecognizer 自行判断）
+        // 只有「按下过」且「几乎没移动」才算点击。拿不到坐标时按点击处理，
+        // 优先保证「点得动」，避免极端情况下连点都点不中。
+        var isTap = false;
+        if (_pressed)
+        {
+            if (_pressedPoint is { } start && released is { } end)
+            {
+                var dx = end.X - start.X;
+                var dy = end.Y - start.Y;
+                if (Math.Sqrt(dx * dx + dy * dy) <= TapSlop) isTap = true;
+            }
+            else
+            {
+                isTap = true;
+            }
+        }
+
+        Release();
+
+        if (isTap) Tapped?.Invoke(_attached, EventArgs.Empty);
+    }
+
+    // 按住后移出区域：取消按压态，且不触发点击
     private void OnPointerExited(object? sender, PointerEventArgs e) => Release();
 
     private async void Release()

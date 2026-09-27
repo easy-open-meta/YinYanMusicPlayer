@@ -20,14 +20,15 @@ public class AndroidAccentColorService : IAccentColorService
 
     public async Task<Color?> ExtractAsync(string? imageUrl, CancellationToken ct = default)
     {
-        var url = ApiConfig.Absolute(imageUrl);
-        if (string.IsNullOrWhiteSpace(url)) return null;
-        if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return null;
+        if (string.IsNullOrWhiteSpace(imageUrl)) return null;
 
         try
         {
-            var bytes = await Http.GetByteArrayAsync(url, ct);
-            if (bytes.Length == 0) return null;
+            // V2.13：与亚克力底图同一个问题同一个修法 —— 原先「Absolute 后要求以 http 开头」
+            // 让本地歌永远取不到主色（静默回默认色）。这里改走 ImageSourceFactory，
+            // http / 本地路径 / content:// / data: 都能拿到字节。
+            var bytes = await ImageSourceFactory.ReadBytesAsync(imageUrl, Http, ct);
+            if (bytes is null || bytes.Length == 0) return null;
 
             var rgba = DecodeToRgba(bytes);
             return rgba is null ? null : AccentColorCalculator.FromPixels(rgba.Value.Rgba, rgba.Value.W, rgba.Value.H);

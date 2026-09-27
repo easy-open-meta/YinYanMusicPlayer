@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             x:Class="YinYanMusic.App.Views.ThirdPartyLicensesPage"
+             x:Name="RootPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <Grid RowDefinitions="Auto,*" Padding="16,12" RowSpacing="8">
+
+        <Grid Grid.Row="0" ColumnDefinitions="40,*,40" VerticalOptions="Center">
+            <Button Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
+                    Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+            <Label Grid.Column="1" Text="第三方开源组件引用" FontSize="20" FontAttributes="Bold"
+                   HorizontalOptions="Center" VerticalOptions="Center" LineBreakMode="TailTruncation"/>
+        </Grid>
+
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Components}" SelectionMode="None"
+                        Margin="0,4,0,0">
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="18" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Border Style="{StaticResource SurfaceCard}" Padding="6"
+                            StrokeThickness="1" Stroke="{DynamicResource CardBorder}">
+                        <Border.Shadow>
+                            <Shadow Brush="Transparent" Offset="0,0" Radius="0" Opacity="0" />
+                        </Border.Shadow>
+                        <!-- 整卡可点：弹窗看该组件的许可证全文 -->
+                        <Border.Behaviors>
+                            <behaviors:PressFeedbackBehavior PressedScale="0.97" PressedOpacity="0.6"/>
+                        </Border.Behaviors>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.ShowLicenseCommand}"
+                                CommandParameter="{Binding .}"/>
+                        </Border.GestureRecognizers>
+                        <Grid Padding="16,16" ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                            <VerticalStackLayout Grid.Column="0" Spacing="5">
+                                <Label Text="{Binding Name}" FontSize="15" FontAttributes="Bold" LineBreakMode="TailTruncation"/>
+                                <Label Text="{Binding Description}" FontSize="12"
+                                       TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+                            </VerticalStackLayout>
+                            <Border Grid.Column="1" BackgroundColor="{DynamicResource PrimaryContainer}" 
+                                    StrokeThickness="0" StrokeShape="RoundRectangle 6" Padding="8,3"
+                                    VerticalOptions="Start">
+                                <Label Text="{Binding License}" FontSize="11" TextColor="{DynamicResource Primary}"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+            <CollectionView.Footer>
+                <Label Text="本应用使用了上述开源组件，遵循其各自的开源许可证。点击卡片可查看许可证全文。"
+                       FontSize="12" TextColor="{StaticResource Gray500}" Padding="4,8,4,20"/>
+            </CollectionView.Footer>
+        </CollectionView>
+    </Grid>
+</ContentPage>

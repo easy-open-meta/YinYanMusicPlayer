@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:behaviors="clr-namespace:YinYanMusic.App.Behaviors"
+             x:Class="YinYanMusic.App.Views.MiniPlayerView"
+             x:Name="RootMini"
+             IsVisible="False"
+             BackgroundColor="{StaticResource CardBackground}">
+
+    <!-- 迷你播放条（从 MainPage 抽出，供多个页面复用）。
+         进度条用 BoxView 手绘 + 一个透明 Slider 叠在上面接手势：
+         原生 ProgressBar 不能拖动，而这里要支持"点/拖进度条跳转"。
+         那层 Slider 的 Opacity=0.01 而不是 0 —— 完全透明的元素在部分平台上收不到触摸。 -->
+    <Grid RowDefinitions="Auto,Auto" Padding="0" RowSpacing="0">
+
+        <Grid Grid.Row="0" x:Name="ProgressContainer" HeightRequest="10" VerticalOptions="Start">
+            <BoxView x:Name="ProgressTrack" BackgroundColor="#E0E0E0"
+                     HeightRequest="3" VerticalOptions="Center" HorizontalOptions="Fill"/>
+            <BoxView x:Name="ProgressFill" BackgroundColor="{DynamicResource Accent}"
+                     HeightRequest="3" VerticalOptions="Center" HorizontalOptions="Start" WidthRequest="0"/>
+            <Slider x:Name="ProgressSlider" Opacity="0.01"
+                    Minimum="0" Maximum="1" Value="0"
+                    HorizontalOptions="Fill" VerticalOptions="Fill"
+                    DragCompleted="OnProgressDragCompleted"/>
+        </Grid>
+
+        <Grid Grid.Row="1" Padding="14,8" ColumnDefinitions="44,10,*,Auto,Auto,Auto,Auto" ColumnSpacing="0">
+            <Grid.Behaviors>
+                <behaviors:PressFeedbackBehavior PressedScale="0.98" PressedOpacity="0.7"/>
+            </Grid.Behaviors>
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnBodyTapped"/>
+            </Grid.GestureRecognizers>
+
+            <!-- 封面：与列表里的封面同一套样式（圆角 4 方图，无额外外圈；
+                 底色是图片加载完之前的占位灰） -->
+            <Border Grid.Column="0" StrokeShape="RoundRectangle 4" StrokeThickness="0"
+                    WidthRequest="44" HeightRequest="44" Padding="0"
+                    BackgroundColor="{StaticResource Gray300}">
+                <Image Aspect="AspectFill"
+                       Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}"/>
+            </Border>
+
+            <VerticalStackLayout Grid.Column="2" Spacing="1" VerticalOptions="Center">
+                <Label Text="{Binding CurrentTitle}" FontSize="14" FontAttributes="Bold" LineBreakMode="TailTruncation"/>
+                <Label Text="{Binding CurrentArtistDisplay}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+            </VerticalStackLayout>
+
+            <Button Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE045;" Clicked="OnPreviousClicked"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="16" Padding="0"
+                    WidthRequest="28" HeightRequest="28" MinimumWidthRequest="0" MinimumHeightRequest="0"/>
+            <Button Grid.Column="4" FontFamily="MaterialIcons" Text="{Binding IsPlaying, Converter={StaticResource BoolToPlayPause}}"
+                    Clicked="OnToggleClicked" CornerRadius="18" HeightRequest="36" WidthRequest="36"
+                    BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}" FontSize="18" Padding="0"
+                    MinimumWidthRequest="0" MinimumHeightRequest="0"/>
+            <Button Grid.Column="5" FontFamily="MaterialIcons" Text="&#xE044;" Clicked="OnNextClicked"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="16" Padding="0"
+                    WidthRequest="28" HeightRequest="28" MinimumWidthRequest="0" MinimumHeightRequest="0"/>
+            <Button Grid.Column="6" FontFamily="MaterialIcons" Text="&#xE03D;" Clicked="OnQueueClicked"
+                    BackgroundColor="Transparent" TextColor="{StaticResource Gray500}" FontSize="16" Padding="0"
+                    WidthRequest="28" HeightRequest="28" MinimumWidthRequest="0" MinimumHeightRequest="0"/>
+        </Grid>
+    </Grid>
+</ContentView>

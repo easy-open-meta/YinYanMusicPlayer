@@ -29,8 +29,27 @@
                         <Label Text="{Binding CategoryName}" FontSize="11" TextColor="{StaticResource Gray500}"/>
                     </Border>
                 </HorizontalStackLayout>
+                <!-- 统计条：歌曲数 / 播放次数（V2.4 新增）。空歌单时仍显示，只是数字为 0。 -->
+                <HorizontalStackLayout Spacing="12" Margin="0,2,0,0">
+                    <Label FontSize="12" TextColor="{StaticResource Gray500}">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="{Binding Songs.Count}" FontAttributes="Bold"/>
+                                <Span Text=" 首"/>
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
+                    <Label FontSize="12" TextColor="{StaticResource Gray500}">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="{Binding PlayCount}" FontAttributes="Bold"/>
+                                <Span Text=" 次播放"/>
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
+                </HorizontalStackLayout>
                 <Label Text="{Binding Description}" FontSize="12" TextColor="{StaticResource Gray500}"
-                       LineBreakMode="TailTruncation" MaxLines="2"/>
+                       LineBreakMode="TailTruncation" MaxLines="2" IsVisible="{Binding Description, Converter={StaticResource StringNotEmpty}}"/>
                 <HorizontalStackLayout Spacing="10" Margin="0,4,0,0">
                     <Button Text="{Binding IsCollected, Converter={StaticResource CollectedText}}"
                             Command="{Binding ToggleCollectCommand}" CornerRadius="18"
@@ -51,16 +70,66 @@
                     <Button FontFamily="MaterialIcons" Text="&#xE872;" Command="{Binding DeletePlaylistCommand}" CornerRadius="18"
                             BackgroundColor="{StaticResource CardBackground}" TextColor="{StaticResource Danger}"
                             HeightRequest="36" WidthRequest="36" Padding="0" IsVisible="{Binding CanDelete}" FontSize="18"/>
+                    <!-- 评论（V2.9）：歌单评论面板。系统歌单也能评论，所以不做可见性门控。 -->
+                    <Button FontFamily="MaterialIcons" Text="&#xE0B9;" Clicked="OnCommentsClicked" CornerRadius="18"
+                            BackgroundColor="{StaticResource CardBackground}" TextColor="{DynamicResource Accent}"
+                            HeightRequest="36" WidthRequest="36" Padding="0" FontSize="18"/>
                 </HorizontalStackLayout>
             </VerticalStackLayout>
         </Grid>
 
-        <Button Grid.Row="2" Text="▶  播放全部音乐" Command="{Binding PlayAllCommand}" CornerRadius="20"
-                BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}" HeightRequest="40" HorizontalOptions="Fill" FontSize="16"/>
+        <!-- 播放全部 + 搜索：同一个 StackLayout 里，收起搜索框时间距自动收缩，
+             不会在播放按钮下方留一条空行（Grid 固定行 + RowSpacing 做不到）。 -->
+        <VerticalStackLayout Grid.Row="2" Spacing="12">
+
+            <!-- 播放全部 + 搜索开关：同一行，搜索按钮紧贴右侧 -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Button Grid.Column="0" Text="▶  播放全部" Command="{Binding PlayAllCommand}" CornerRadius="20"
+                        BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}"
+                        HeightRequest="40" HorizontalOptions="Fill" FontSize="16"/>
+
+                <!-- 搜索开关：收起态是放大镜图标，展开态换成「取消」文字。
+                     两种形态字体不同（MaterialIcons vs 默认字体），用两个按钮切换可见性
+                     —— 比给 FontFamily 也套转换器更直观。
+                     样式用 SearchToggleButton，与搜索框同族（白底 + 发丝描边 + 同圆角）。 -->
+                <Button Grid.Column="1" Style="{StaticResource SearchToggleButton}"
+                        FontFamily="MaterialIcons" Text="&#xE8B6;"
+                        Command="{Binding ToggleSearchCommand}"
+                        WidthRequest="40"
+                        IsVisible="{Binding IsSearchVisible, Converter={StaticResource InverseBool}}"/>
+                <Button Grid.Column="1" Style="{StaticResource SearchToggleButton}"
+                        Text="取消" FontSize="14" Padding="16,0"
+                        Command="{Binding ToggleSearchCommand}"
+                        IsVisible="{Binding IsSearchVisible}"/>
+            </Grid>
+
+            <!-- 歌单内搜索框：默认收起，点放大镜展开。样式与搜索页共用 SurfaceSearch。 -->
+            <Border Style="{StaticResource SurfaceSearch}" Padding="16,0" HeightRequest="48"
+                    Margin="0,0,10,0" IsVisible="{Binding IsSearchVisible}">
+                <Grid ColumnDefinitions="24,10,*,8,24" VerticalOptions="Center">
+                    <Label Grid.Column="0" Style="{StaticResource SearchGlyphLabel}"/>
+                    <Entry x:Name="PlaylistSearchEntry" Grid.Column="2" Style="{StaticResource SearchEntry}"
+                           Placeholder="搜索歌单内的歌曲"
+                           Text="{Binding SearchKeyword}" ReturnType="Search"/>
+                    <!-- 清除按钮：仅有关键词时显示 -->
+                    <Button Grid.Column="4" Style="{StaticResource SearchClearButton}"
+                            IsVisible="{Binding IsSearchActive}"
+                            Command="{Binding ClearSearchCommand}"/>
+                </Grid>
+            </Border>
+        </VerticalStackLayout>
 
         <CollectionView Grid.Row="3" ItemsSource="{Binding Songs}" SelectionMode="None">
             <CollectionView.EmptyView>
-                <Label Text="歌单还没有歌曲" TextColor="{StaticResource Gray500}" HorizontalOptions="Center" Padding="0,40"/>
+                <VerticalStackLayout Padding="0,40" Spacing="6">
+                    <!-- 搜索无结果 vs 歌单本身为空：两种空态给不同提示，否则用户会以为歌单被清空了 -->
+                    <Label Text="没有找到匹配的歌曲" TextColor="{StaticResource Gray500}"
+                           HorizontalOptions="Center" IsVisible="{Binding IsSearchEmpty}"/>
+                    <Label Text="试试其它关键词，或清空搜索框" FontSize="12" TextColor="{StaticResource Gray300}"
+                           HorizontalOptions="Center" IsVisible="{Binding IsSearchEmpty}"/>
+                    <Label Text="歌单还没有歌曲" TextColor="{StaticResource Gray500}"
+                           HorizontalOptions="Center" IsVisible="{Binding IsPlaylistEmpty}"/>
+                </VerticalStackLayout>
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="dtos:SongDto">
@@ -92,7 +161,7 @@
                                 <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE838;" FontSize="12" TextColor="#FFD700" IsVisible="{Binding IsLiked}" VerticalOptions="Center"/>
                                 <Label Grid.Column="1" Text="{Binding Title}" FontSize="15" LineBreakMode="TailTruncation"/>
                             </Grid>
-                            <Label Text="{Binding ArtistName}" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                            <Label Text="{Binding ArtistsDisplay}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
                         </VerticalStackLayout>
                         <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
                                FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>

@@ -1,0 +1,35 @@
+{
+  "name": "yin-yan-music-admin",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "gen:api": "curl -s http://localhost:5116/openapi/v1.json -o openapi.json && openapi-typescript openapi.json -o src/api/schema.d.ts",
+    "lint:unused": "knip"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "axios": "^1.7.7",
+    "dayjs": "^1.11.13",
+    "element-plus": "^2.8.7",
+    "pinia": "^2.2.6",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/tsconfig": "^0.7.0",
+    "openapi-typescript": "^7.4.4",
+    "sass": "^1.81.0",
+    "typescript": "~5.7.2",
+    "unplugin-auto-import": "^0.18.6",
+    "unplugin-vue-components": "^0.27.5",
+    "vite": "^6.0.3",
+    "vue-tsc": "^2.1.10"
+  }
+}

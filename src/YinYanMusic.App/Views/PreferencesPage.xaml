@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="YinYanMusic.App.Views.PreferencesPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <Grid RowDefinitions="Auto,*" Padding="16,12" RowSpacing="8">
+
+        <Grid Grid.Row="0" ColumnDefinitions="40,*,40" VerticalOptions="Center">
+            <Button Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
+                    Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+            <Label Grid.Column="1" Text="偏好设置" FontSize="20" FontAttributes="Bold"
+                   HorizontalOptions="Center" VerticalOptions="Center" LineBreakMode="TailTruncation"/>
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="14" Padding="0,4,0,20">
+
+                <!-- 窗口相关：**只有 Windows 有"关闭窗口"这个动作**，Android 上整块不出现
+                     （入口在抽屉里也已经隐藏，这里再兜一道底，避免任何路径下露出不支持的能力）。 -->
+                <VerticalStackLayout Spacing="14" IsVisible="{Binding IsHideToTrayOnWindowCloseSupported}">
+
+                    <Border Style="{StaticResource SurfaceCard}" Padding="6">
+                        <VerticalStackLayout Spacing="0">
+
+                            <Grid Padding="16,14" ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                                <VerticalStackLayout Grid.Column="0" Spacing="3" VerticalOptions="Center">
+                                    <Label Text="关闭窗口时隐藏到托盘" FontSize="16"/>
+                                    <Label Text="点 ✕ / Alt+F4 关窗口时收进任务栏右下角的托盘，音乐继续播放；左键单击托盘图标还原窗口。"
+                                           FontSize="12" TextColor="{StaticResource Gray500}"/>
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding HideToTrayOnWindowClose}"
+                                        VerticalOptions="Center"/>
+                            </Grid>
+
+                            <BoxView HeightRequest="1" BackgroundColor="{DynamicResource CardBorder}" Margin="16,0"/>
+
+                            <Label Text="{Binding HideToTrayHint}" FontSize="12"
+                                   TextColor="{StaticResource Gray500}" Padding="16,12"/>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Style="{StaticResource SurfaceCard}" Padding="6">
+                        <Grid Padding="16,14" ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                            <VerticalStackLayout Grid.Column="0" Spacing="3" VerticalOptions="Center">
+                                <Label Text="退出程序" FontSize="16"/>
+                                <Label Text="停止播放并彻底关闭音言音乐（托盘图标的右键菜单里也有）" FontSize="12"
+                                       TextColor="{StaticResource Gray500}"/>
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="退出" Command="{Binding ExitAppCommand}"
+                                    CornerRadius="22" Padding="20,0" FontSize="13"
+                                    BackgroundColor="{DynamicResource Primary}"
+                                    TextColor="{DynamicResource OnPrimary}" VerticalOptions="Center"/>
+                        </Grid>
+                    </Border>
+
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

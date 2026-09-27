@@ -5,23 +5,37 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageVersion Include="MailKit" Version="4.16.0" />
     <PackageVersion Include="CommunityToolkit.Maui.MediaElement" Version="10.0.0" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.4" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
+    <!-- V2.15 App 实时通知：SignalR 官方客户端（自动重连 + ?access_token 认证） -->
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.4" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.4" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.4" />
+    <!-- V2.11 补报服务层单测：SQLite in-memory 跑真实 EF 管线（不 mock DbContext） -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.4" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.4" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.4" />
     <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.101" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <!-- 文档定的是 2.11.x，但该版本号在 NuGet 上不存在，实际解析为 2.12.0，遂固定之 -->
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.12.0" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.12" />
-    <PackageVersion Include="TagLibSharp" Version="2.3.0" />
+    <!-- V2.6 本地音乐库：轻量属性映射型 SQLite ORM。刻意不引 EF Core SQLite——
+         服务端那套（Npgsql + 迁移）在客户端只会撑大 android/windows 包体，
+         而本地表只有一张、无关联查询，sqlite-net 的 API 面足够。 -->
+    <PackageVersion Include="sqlite-net-pcl" Version="1.9.172" />
     <PackageVersion Include="z440.atl.core" Version="7.10.0" />
     <PackageVersion Include="Xamarin.AndroidX.Media" Version="1.7.0.12" />
     <PackageVersion Include="xunit" Version="2.9.3" />

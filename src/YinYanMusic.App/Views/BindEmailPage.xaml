@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="YinYanMusic.App.Views.BindEmailPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <Grid RowDefinitions="Auto,*" Padding="16,12" RowSpacing="8">
+
+        <Grid Grid.Row="0" ColumnDefinitions="40,*,40" VerticalOptions="Center">
+            <Button Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE5C4;" Command="{Binding BackCommand}"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource Accent}"
+                    Padding="0" FontSize="24" WidthRequest="40" HeightRequest="40"/>
+            <Label Grid.Column="1" Text="邮箱绑定" FontSize="20" FontAttributes="Bold"
+                   HorizontalOptions="Center" VerticalOptions="Center"/>
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="14" Padding="0,4,0,20">
+
+                <Border Style="{StaticResource SurfaceCard}" Padding="18">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="绑定邮箱" FontSize="15" FontAttributes="Bold"/>
+
+                        <!-- 已绑定：显示当前邮箱，输入框可改（换绑） -->
+                        <Label Text="{Binding CurrentEmail, StringFormat='当前已绑定：{0}'}" FontSize="12"
+                               TextColor="{StaticResource Gray500}" IsVisible="{Binding HasEmail}"/>
+
+                        <Entry Text="{Binding EmailInput}" Placeholder="输入邮箱地址" Keyboard="Email" FontSize="15"/>
+
+                        <Button Text="{Binding SendCodeText}" Command="{Binding SendCodeCommand}"
+                                IsEnabled="{Binding CanSendCode}" FontSize="14"
+                                BackgroundColor="{StaticResource PrimarySoft}" TextColor="{DynamicResource Accent}"
+                                CornerRadius="18" HeightRequest="40"/>
+
+                        <!-- 验证码输入：发过码之后才出现 -->
+                        <VerticalStackLayout Spacing="10" IsVisible="{Binding CodeSent}">
+                            <Entry Text="{Binding CodeInput}" Placeholder="6 位验证码" Keyboard="Numeric" FontSize="15"/>
+                            <Button Text="绑定邮箱" Command="{Binding BindCommand}" FontSize="15"
+                                    BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}"
+                                    CornerRadius="20" HeightRequest="44"/>
+                        </VerticalStackLayout>
+
+                        <Label Text="验证码 10 分钟内有效；未收到请检查垃圾邮件。" FontSize="11"
+                               TextColor="{StaticResource Gray500}"/>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding StatusMessage}" FontSize="13" HorizontalOptions="Center">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding IsError}" Value="True">
+                            <Setter Property="TextColor" Value="{StaticResource Danger}"/>
+                        </DataTrigger>
+                        <DataTrigger TargetType="Label" Binding="{Binding IsError}" Value="False">
+                            <Setter Property="TextColor" Value="{StaticResource Gray500}"/>
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="1" IsVisible="{Binding IsBusy}" BackgroundColor="#40000000">
+            <ActivityIndicator IsRunning="{Binding IsBusy}" Color="{DynamicResource Accent}"
+                               HorizontalOptions="Center" VerticalOptions="Center"/>
+        </Grid>
+    </Grid>
+</ContentPage>

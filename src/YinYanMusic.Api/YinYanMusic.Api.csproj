@@ -8,6 +8,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <!-- API 可视化文档（/scalar/v1）。MapOpenApi（JSON）与 MapScalarApiReference（UI）必须成对出现。 -->
+    <PackageReference Include="Scalar.AspNetCore" />
     <!-- Windows 安装形态：以 Windows 服务方式运行（sc create 注册）。
          Linux/Docker 上不会调用，见 Program.cs 的 OperatingSystem.IsWindows() 守卫。 -->
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />

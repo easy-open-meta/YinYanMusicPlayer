@@ -54,7 +54,7 @@
                                     <Grid Grid.Column="0" HeightRequest="52" WidthRequest="52">
                                         <Frame CornerRadius="26" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
                                                BackgroundColor="{DynamicResource PrimarySoft}">
-                                            <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="22"
+                                            <Label Text="{Binding DisplayName, Converter={StaticResource Initial}}" FontAttributes="Bold" FontSize="22"
                                                    TextColor="{DynamicResource Accent}" HorizontalOptions="Center" VerticalOptions="Center"/>
                                         </Frame>
                                         <Frame CornerRadius="26" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
@@ -105,7 +105,7 @@
                                     <Grid Grid.Column="0" HeightRequest="52" WidthRequest="52">
                                         <Frame CornerRadius="26" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
                                                BackgroundColor="{DynamicResource PrimarySoft}">
-                                            <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="22"
+                                            <Label Text="{Binding Name, Converter={StaticResource Initial}}" FontAttributes="Bold" FontSize="22"
                                                    TextColor="{DynamicResource Accent}" HorizontalOptions="Center" VerticalOptions="Center"/>
                                         </Frame>
                                         <Frame CornerRadius="26" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"

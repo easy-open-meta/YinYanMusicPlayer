@@ -77,6 +77,20 @@ public class AuthService(IMusicApi api) : IAuthService
         Token = null;
         CurrentUser = null;
         await RemoveTokenAsync();
+
+        // 会话结束的收尾：**停掉播放**并清空队列、隐藏迷你播放条。
+        // 所有退出路径（抽屉里的退出、我的页退出、改密后强制登出、恢复登录态失败）
+        // 最终都汇到这里，所以收尾放这一处 —— 放到各个页面里迟早会漏掉一个入口。
+        // 用 ServiceHelper 延迟解析（与 PlayerService 取 LocalLibraryStore / CacheStore 同一写法）：
+        // AuthService 注册得更早，构造函数直接注入 PlayerService 会引入循环依赖风险。
+        ServiceHelper.GetService<PlayerService>()?.ResetForNewSession();
+        // V2.15：登出断开通知实时通道（延迟解析，原因同上）
+        try
+        {
+            var realtime = ServiceHelper.GetService<NotificationRealtimeService>();
+            if (realtime is not null) await realtime.DisconnectAsync();
+        }
+        catch { /* 断连失败不影响登出本身 */ }
     }
 
     private async Task SaveSessionAsync(AuthResponse resp)
@@ -84,6 +98,16 @@ public class AuthService(IMusicApi api) : IAuthService
         Token = resp.AccessToken;
         CurrentUser = resp.User;
         await WriteTokenAsync(resp.AccessToken);
+        // V2.15：登录成功后建 SignalR 通道（失败只记日志，不阻塞登录）
+        try
+        {
+            var realtime = ServiceHelper.GetService<NotificationRealtimeService>();
+            if (realtime is not null) await realtime.EnsureConnectedAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Auth] 连接通知通道失败: {ex.Message}");
+        }
     }
 
     private static async Task<string?> ReadTokenAsync()

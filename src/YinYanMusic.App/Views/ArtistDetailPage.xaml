@@ -23,7 +23,7 @@
                     <Grid HeightRequest="64" WidthRequest="64">
                         <Frame CornerRadius="32" Padding="0" IsClippedToBounds="True" HeightRequest="64" WidthRequest="64"
                                BackgroundColor="{DynamicResource Primary}" HorizontalOptions="Center" VerticalOptions="Center">
-                            <Label FontFamily="MaterialIcons" Text="&#xE030;" FontSize="28" TextColor="{DynamicResource OnPrimary}" HorizontalOptions="Center" VerticalOptions="Center"/>
+                            <Label Text="{Binding Name, Converter={StaticResource Initial}}" FontAttributes="Bold" FontSize="28" TextColor="{DynamicResource OnPrimary}" HorizontalOptions="Center" VerticalOptions="Center"/>
                         </Frame>
                         <Frame CornerRadius="32" Padding="0" IsClippedToBounds="True" HeightRequest="64" WidthRequest="64"
                                BackgroundColor="Transparent" HorizontalOptions="Center" VerticalOptions="Center"
@@ -54,22 +54,115 @@
             </VerticalStackLayout>
         </Border>
 
-        <Button Grid.Row="2" Text="&#xE037;  播放全部" Command="{Binding PlayAllCommand}" CornerRadius="20"
-                BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}" HeightRequest="40" HorizontalOptions="Fill" FontSize="16"
-                FontFamily="MaterialIcons" Margin="13,0,13,0"/>
+        <!-- 标签页：歌曲 / 专辑。与「缓存管理」页同一套写法（按钮 + DataTrigger 高亮当前页） -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*,Auto" ColumnSpacing="8" Margin="13,0,13,0">
+            <Button Grid.Column="0" Text="歌曲" Command="{Binding SelectTabCommand}" CommandParameter="songs"
+                    CornerRadius="18" HeightRequest="36" FontSize="14" Padding="0"
+                    BackgroundColor="{StaticResource CardBackground}" TextColor="{StaticResource Gray600}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsSongsTab}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{DynamicResource Primary}"/>
+                        <Setter Property="TextColor" Value="{DynamicResource OnPrimary}"/>
+                        <Setter Property="FontAttributes" Value="Bold"/>
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+            <Button Grid.Column="1" Text="专辑" Command="{Binding SelectTabCommand}" CommandParameter="albums"
+                    CornerRadius="18" HeightRequest="36" FontSize="14" Padding="0"
+                    BackgroundColor="{StaticResource CardBackground}" TextColor="{StaticResource Gray600}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsAlbumsTab}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{DynamicResource Primary}"/>
+                        <Setter Property="TextColor" Value="{DynamicResource OnPrimary}"/>
+                        <Setter Property="FontAttributes" Value="Bold"/>
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
 
-        <CollectionView Grid.Row="3" ItemsSource="{Binding Songs}" SelectionMode="None" Margin="13,0,13,0">
+            <!-- 排序切换：只在专辑页出现（歌曲页已有"播放全部"，不挤这一行）。
+                 点一下在「发行时间 ↓」与「名称 A-Z」之间切换；服务端默认给的就是发行时间倒序。 -->
+            <Button Grid.Column="2" Text="{Binding AlbumSortText, StringFormat='⇅ {0}'}"
+                    Command="{Binding ToggleAlbumSortCommand}" IsVisible="{Binding IsAlbumsTab}"
+                    CornerRadius="18" HeightRequest="36" FontSize="13" Padding="12,0"
+                    BackgroundColor="{StaticResource CardBackground}" TextColor="{StaticResource Gray600}"/>
+        </Grid>
+
+        <!-- 内容区：两个列表叠放，按当前标签切换可见性（叠放而不是各占一行 —— 隐藏的行仍会占位） -->
+        <Grid Grid.Row="3">
+
+        <!-- ① 歌曲：「播放全部」放在本标签页内，避免切到专辑页时它还悬在上面说不清作用对象 -->
+        <Grid IsVisible="{Binding IsSongsTab}" RowDefinitions="Auto,*">
+            <Button Grid.Row="0" Text="&#xE037;  播放全部" Command="{Binding PlayAllCommand}" CornerRadius="20"
+                    BackgroundColor="{DynamicResource Primary}" TextColor="{DynamicResource OnPrimary}" HeightRequest="40" HorizontalOptions="Fill" FontSize="16"
+                    FontFamily="MaterialIcons" Margin="13,0,13,10"/>
+
+            <!-- 懒加载：首屏只取 20 首（页面尽快有内容），滚到离底部 5 行时自动取下一页。
+                 底部转圈只在真取下一页时出现 —— 全部加载完就没有任何多余元素。 -->
+            <CollectionView Grid.Row="1" ItemsSource="{Binding Songs}" SelectionMode="None" Margin="13,0,13,0"
+                            RemainingItemsThreshold="5"
+                            RemainingItemsThresholdReachedCommand="{Binding LoadMoreSongsCommand}">
+                <CollectionView.EmptyView>
+                    <Label Text="暂无歌曲" TextColor="{StaticResource Gray500}" HorizontalOptions="Center" Padding="0,40"/>
+                </CollectionView.EmptyView>
+                <CollectionView.Footer>
+                    <Grid HeightRequest="40" IsVisible="{Binding IsLoadingMore}">
+                        <ActivityIndicator IsRunning="{Binding IsLoadingMore}" WidthRequest="22" HeightRequest="22"
+                                           Color="{StaticResource Gray500}" HorizontalOptions="Center"/>
+                    </Grid>
+                </CollectionView.Footer>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dtos:SongDto">
+                        <Grid Padding="4,10" ColumnDefinitions="36,*,Auto,Auto" ColumnSpacing="10">
+                            <Grid.Behaviors>
+                                <behaviors:PressFeedbackBehavior />
+                            </Grid.Behaviors>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.PlaySongCommand}" CommandParameter="{Binding .}"/>
+                            </Grid.GestureRecognizers>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroupList>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Property="Opacity" Value="0.5"/>
+                                                <Setter Property="Scale" Value="0.97"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateGroupList>
+                            </VisualStateManager.VisualStateGroups>
+                            <Frame Grid.Column="0" CornerRadius="4" Padding="0" IsClippedToBounds="True" HeightRequest="32" WidthRequest="32" BackgroundColor="{StaticResource Gray300}" HorizontalOptions="Center" InputTransparent="True">
+                                <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                            </Frame>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                <Label Text="{Binding Title}" FontSize="15" LineBreakMode="TailTruncation"/>
+                                <Label Text="{Binding ArtistsDisplay}" FontSize="12" TextColor="{StaticResource Gray500}" LineBreakMode="TailTruncation"/>
+                            </VerticalStackLayout>
+                            <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
+                                   FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
+                            <Button Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE5D4;" Clicked="OnMoreClicked"
+                                    CommandParameter="{Binding .}" BackgroundColor="Transparent" TextColor="{StaticResource Gray500}"
+                                    FontSize="16" Padding="0" WidthRequest="30" HeightRequest="30"/>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+
+        <!-- ② 专辑：点整张即播（先把该专辑的歌取回来，再整张入队 —— 队列长度为 1 时"下一首"会等于自己） -->
+        <CollectionView IsVisible="{Binding IsAlbumsTab}" ItemsSource="{Binding Albums}" SelectionMode="None" Margin="13,0,13,0">
             <CollectionView.EmptyView>
-                <Label Text="暂无歌曲" TextColor="{StaticResource Gray500}" HorizontalOptions="Center" Padding="0,40"/>
+                <Label Text="暂无专辑" TextColor="{StaticResource Gray500}" HorizontalOptions="Center" Padding="0,40"/>
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="dtos:SongDto">
-                    <Grid Padding="4,10" ColumnDefinitions="36,*,Auto,Auto" ColumnSpacing="10">
+                <DataTemplate x:DataType="dtos:AlbumDto">
+                    <Grid Padding="4,8" ColumnDefinitions="52,*,Auto" ColumnSpacing="12">
                         <Grid.Behaviors>
                             <behaviors:PressFeedbackBehavior />
                         </Grid.Behaviors>
                         <Grid.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.PlaySongCommand}" CommandParameter="{Binding .}"/>
+                            <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.PlayAlbumCommand}" CommandParameter="{Binding .}"/>
                         </Grid.GestureRecognizers>
                         <VisualStateManager.VisualStateGroups>
                             <VisualStateGroupList>
@@ -84,21 +177,31 @@
                                 </VisualStateGroup>
                             </VisualStateGroupList>
                         </VisualStateManager.VisualStateGroups>
-                        <Frame Grid.Column="0" CornerRadius="4" Padding="0" IsClippedToBounds="True" HeightRequest="32" WidthRequest="32" BackgroundColor="{StaticResource Gray300}" HorizontalOptions="Center" InputTransparent="True">
-                            <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
-                        </Frame>
-                        <VerticalStackLayout Grid.Column="1" Spacing="2">
-                            <Label Text="{Binding Title}" FontSize="15" LineBreakMode="TailTruncation"/>
-                            <Label Text="{Binding ArtistName}" FontSize="12" TextColor="{StaticResource Gray500}"/>
+                        <Grid Grid.Column="0" HeightRequest="52" WidthRequest="52">
+                            <Frame CornerRadius="8" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
+                                   BackgroundColor="{StaticResource Gray300}">
+                                <Label FontFamily="MaterialIcons" Text="&#xE03D;" FontSize="20"
+                                       TextColor="{StaticResource Gray600}" HorizontalOptions="Center" VerticalOptions="Center"/>
+                            </Frame>
+                            <Frame CornerRadius="8" Padding="0" IsClippedToBounds="True" HeightRequest="52" WidthRequest="52"
+                                   BackgroundColor="Transparent"
+                                   IsVisible="{Binding CoverUrl, Converter={StaticResource StringNotEmpty}}">
+                                <Image Source="{Binding CoverUrl, Converter={StaticResource AbsoluteUrl}}" Aspect="AspectFill"/>
+                            </Frame>
+                        </Grid>
+                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                            <Label Text="{Binding Name}" FontSize="15" LineBreakMode="TailTruncation"/>
+                            <!-- 副标题：发行时间 · 专辑内有几首（没有发行日期时只显示首数） -->
+                            <Label Text="{Binding ., Converter={StaticResource AlbumSubtitle}}" FontSize="12"
+                                   TextColor="{StaticResource Gray500}"/>
                         </VerticalStackLayout>
-                        <Label Grid.Column="2" Text="{Binding DurationSeconds, Converter={StaticResource SecondsToTime}}"
-                               FontSize="12" TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
-                        <Button Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE5D4;" Clicked="OnMoreClicked"
-                                CommandParameter="{Binding .}" BackgroundColor="Transparent" TextColor="{StaticResource Gray500}"
-                                FontSize="16" Padding="0" WidthRequest="30" HeightRequest="30"/>
+                        <Label Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE037;" FontSize="18"
+                               TextColor="{StaticResource Gray500}" VerticalOptions="Center"/>
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
+
+        </Grid>
     </Grid>
 </ContentPage>
