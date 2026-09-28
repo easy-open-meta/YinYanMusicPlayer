@@ -22,7 +22,7 @@ public class AdminController(
     ScanOptions scanOptions,
     ScanState scanState) : ControllerBase
 {
-    /// <summary>后台管理员登录（匿名）。校验凭据 + role=admin，令牌有效期 8 小时。</summary>
+    /// <summary>后台管理员登录（匿名）。校验凭据 + role=admin，令牌有效期 7 天。</summary>
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest req)

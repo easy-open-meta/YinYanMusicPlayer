@@ -30,7 +30,7 @@
 | PostgreSQL | ≥ 16 | [postgresql.org/download](https://www.postgresql.org/download/) |
 | Inno Setup | 6.7.x | 仅打包用，[jrsoftware.org/isdl.php](https://jrsoftware.org/isdl.php)（非必须，开发可跳过） |
 
-**Windows 安装包用户**仅需：PostgreSQL + 下载安装包（.NET 运行时自包含，无需预装 .NET）。
+**Windows 安装包用户**仅需：PostgreSQL + 下载安装包（包体不含 .NET 运行时；安装器检测缺失时自动引导安装「.NET 桌面运行时 10」）。
 
 ---
 

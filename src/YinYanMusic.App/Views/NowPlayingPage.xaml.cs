@@ -640,11 +640,9 @@ public partial class NowPlayingPage : ContentPage
 			var rawName = $"{_vm.Player.CurrentTitle}-{artistText}{ext}";
 			var fileName = string.Join("_", rawName.Split(Path.GetInvalidFileNameChars()));
 
-			var picturesDir = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-			var saveDir = Path.Combine(picturesDir, "YinYanMusic");
-			Directory.CreateDirectory(saveDir);
-			var path = Path.Combine(saveDir, fileName);
-			await File.WriteAllBytesAsync(path, bytes);
+			// Android：公共 Download/YinYanMusic（MediaStore，用户在文件管理器里可见）；
+			// Windows：用户"图片"库下的 YinYanMusic。
+			var path = await CoverSaveService.SaveAsync(fileName, ext, bytes);
 
 			await SongMenuHelper.ShowMessageDialogAsync("保存成功", $"封面已保存到：\n{path}", "确定");
 		}

@@ -4,8 +4,8 @@ namespace YinYanMusic.Application;
 
 public interface ITokenService
 {
-    /// <summary>签发令牌。<paramref name="lifetime"/> 为空时用配置里的默认有效期（App：7 天）；
-    /// 后台管理员登录传 8 小时 —— 后台 token 存浏览器，短一点更稳。</summary>
+    /// <summary>签发令牌。<paramref name="lifetime"/> 为空时用配置里的默认有效期（App 与后台一致：7 天）；
+    /// 后台登录 / 后台注册显式传 <see cref="AuthService"/> 里的 <c>AdminTokenLifetime</c>，便于单独调整。</summary>
     (string Token, DateTime ExpiresAt) CreateToken(User user, TimeSpan? lifetime = null);
 
     /// <summary>

@@ -588,6 +588,175 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    keyword?: string;
+                    page?: number | string;
+                    pageSize?: number | string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PagedResultOfAdminNotificationDto"];
+                        "application/json": components["schemas"]["PagedResultOfAdminNotificationDto"];
+                        "text/json": components["schemas"]["PagedResultOfAdminNotificationDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SendNotificationRequest"];
+                    "text/json": components["schemas"]["SendNotificationRequest"];
+                    "application/*+json": components["schemas"]["SendNotificationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["AdminNotificationDto"];
+                        "application/json": components["schemas"]["AdminNotificationDto"];
+                        "text/json": components["schemas"]["AdminNotificationDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/recommended": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    keyword?: string;
+                    page?: number | string;
+                    pageSize?: number | string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PagedResultOfAdminRecommendedDto"];
+                        "application/json": components["schemas"]["PagedResultOfAdminRecommendedDto"];
+                        "text/json": components["schemas"]["PagedResultOfAdminRecommendedDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/recommended/{playlistId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    playlistId: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateRecommendedRequest"];
+                    "text/json": components["schemas"]["UpdateRecommendedRequest"];
+                    "application/*+json": components["schemas"]["UpdateRecommendedRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    playlistId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/register": {
         parameters: {
             query?: never;
@@ -2415,6 +2584,274 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    page?: number | string;
+                    pageSize?: number | string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PagedResultOfNotificationDto"];
+                        "application/json": components["schemas"]["PagedResultOfNotificationDto"];
+                        "text/json": components["schemas"]["PagedResultOfNotificationDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["UnreadCountDto"];
+                        "application/json": components["schemas"]["UnreadCountDto"];
+                        "text/json": components["schemas"]["UnreadCountDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["UnreadCountDto"];
+                        "application/json": components["schemas"]["UnreadCountDto"];
+                        "text/json": components["schemas"]["UnreadCountDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/playback/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PlaybackProgressRequest"];
+                    "text/json": components["schemas"]["PlaybackProgressRequest"];
+                    "application/*+json": components["schemas"]["PlaybackProgressRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/playback/last": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PlaybackProgressDto"];
+                        "application/json": components["schemas"]["PlaybackProgressDto"];
+                        "text/json": components["schemas"]["PlaybackProgressDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/playback/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PlayReportsBatchRequest"];
+                    "text/json": components["schemas"]["PlayReportsBatchRequest"];
+                    "application/*+json": components["schemas"]["PlayReportsBatchRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PlayReportsAck"];
+                        "application/json": components["schemas"]["PlayReportsAck"];
+                        "text/json": components["schemas"]["PlayReportsAck"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/playlists": {
         parameters: {
             query?: never;
@@ -2825,6 +3262,48 @@ export interface paths {
                         "text/plain": (number | string)[];
                         "application/json": (number | string)[];
                         "text/json": (number | string)[];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recommend/playlists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    scene?: string;
+                    categoryId?: number | string;
+                    page?: number | string;
+                    pageSize?: number | string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PagedResultOfPlaylistDto"];
+                        "application/json": components["schemas"]["PagedResultOfPlaylistDto"];
+                        "text/json": components["schemas"]["PagedResultOfPlaylistDto"];
                     };
                 };
             };
@@ -3272,6 +3751,55 @@ export interface components {
             /** @default false */
             isDeleted: boolean;
         };
+        AdminNotificationDto: {
+            /** Format: int64 */
+            id: number | string;
+            title: string;
+            content: string;
+            targetType: string;
+            recipientUserIds: (number | string)[];
+            /** Format: int64 */
+            relatedSongId: null | number | string;
+            /** Format: int64 */
+            relatedPlaylistId: null | number | string;
+            /** Format: int64 */
+            relatedAlbumId: null | number | string;
+            status: string;
+            /** Format: int64 */
+            createdById: number | string;
+            createdByName: string;
+            /** Format: date-time */
+            createdAtUtc: string;
+            /** Format: date-time */
+            sentAtUtc: null | string;
+            /** Format: int32 */
+            recipientCount: number | string;
+            /** Format: int32 */
+            readCount: number | string;
+        };
+        AdminRecommendedDto: {
+            /** Format: int64 */
+            playlistId: number | string;
+            name: string;
+            coverUrl: null | string;
+            categoryName: null | string;
+            ownerName: string;
+            /** Format: int32 */
+            trackCount: number | string;
+            /** Format: int32 */
+            collectorCount: number | string;
+            /** Format: int64 */
+            playCount: number | string;
+            /** Format: date-time */
+            createdAt: string;
+            isSystem: boolean;
+            /** Format: int32 */
+            sortOrder: number | string;
+            /** Format: int32 */
+            weight: number | string;
+            isHidden: boolean;
+            hasOverride: boolean;
+        };
         AdminUserDto: {
             /** Format: int64 */
             id: number | string;
@@ -3299,6 +3827,7 @@ export interface components {
              * @default 0
              */
             trackCount: number | string;
+            artists?: null | components["schemas"]["SongArtistRef"][];
         };
         ArtistDto: {
             /** Format: int64 */
@@ -3392,6 +3921,7 @@ export interface components {
             releaseDate: null | string;
             description: null | string;
             coverUrl: null | string;
+            artistIds?: null | (number | string)[];
         };
         CreateArtistRequest: {
             name: string;
@@ -3486,6 +4016,23 @@ export interface components {
         MediaUploadResult: {
             url: string;
         };
+        NotificationDto: {
+            /** Format: int64 */
+            id: number | string;
+            title: string;
+            content: string;
+            isRead: boolean;
+            /** Format: int64 */
+            relatedSongId: null | number | string;
+            /** Format: int64 */
+            relatedPlaylistId: null | number | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            readAtUtc?: null | string;
+            /** Format: int64 */
+            relatedAlbumId?: null | number | string;
+        };
         PagedAdminUserResult: {
             items: components["schemas"]["AdminUserDto"][];
             /** Format: int32 */
@@ -3497,6 +4044,24 @@ export interface components {
         };
         PagedResultOfAdminCommentDto: {
             items: components["schemas"]["AdminCommentDto"][];
+            /** Format: int32 */
+            total: number | string;
+            /** Format: int32 */
+            page: number | string;
+            /** Format: int32 */
+            pageSize: number | string;
+        };
+        PagedResultOfAdminNotificationDto: {
+            items: components["schemas"]["AdminNotificationDto"][];
+            /** Format: int32 */
+            total: number | string;
+            /** Format: int32 */
+            page: number | string;
+            /** Format: int32 */
+            pageSize: number | string;
+        };
+        PagedResultOfAdminRecommendedDto: {
+            items: components["schemas"]["AdminRecommendedDto"][];
             /** Format: int32 */
             total: number | string;
             /** Format: int32 */
@@ -3531,6 +4096,15 @@ export interface components {
             /** Format: int32 */
             pageSize: number | string;
         };
+        PagedResultOfNotificationDto: {
+            items: components["schemas"]["NotificationDto"][];
+            /** Format: int32 */
+            total: number | string;
+            /** Format: int32 */
+            page: number | string;
+            /** Format: int32 */
+            pageSize: number | string;
+        };
         PagedResultOfPlaylistDto: {
             items: components["schemas"]["PlaylistDto"][];
             /** Format: int32 */
@@ -3548,6 +4122,23 @@ export interface components {
             page: number | string;
             /** Format: int32 */
             pageSize: number | string;
+        };
+        PlaybackProgressDto: {
+            /** Format: int64 */
+            songId: number | string;
+            /** Format: double */
+            positionSeconds: number | string;
+            /** Format: date-time */
+            updatedAtUtc: string;
+            song: components["schemas"]["SongDto"];
+            deviceName?: null | string;
+        };
+        PlaybackProgressRequest: {
+            /** Format: int64 */
+            songId: number | string;
+            /** Format: double */
+            positionSeconds: number | string;
+            deviceName?: null | string;
         };
         PlaylistDetailDto: {
             /** Format: int64 */
@@ -3598,6 +4189,25 @@ export interface components {
              */
             playCount: number | string;
         };
+        PlayReportRequest: {
+            /** Format: int64 */
+            songId: number | string;
+            clientKey: string;
+            /** Format: date-time */
+            playedAtUtc: string;
+            /** Format: double */
+            positionSeconds: number | string;
+        };
+        PlayReportsAck: {
+            /** Format: int32 */
+            accepted: number | string;
+            /** Format: int32 */
+            duplicated: number | string;
+            unknownSongs: (number | string)[];
+        };
+        PlayReportsBatchRequest: {
+            items: components["schemas"]["PlayReportRequest"][];
+        };
         RecentSongDto: {
             /** Format: int64 */
             id: number | string;
@@ -3632,6 +4242,18 @@ export interface components {
             sent: boolean;
             message: null | string;
             devCode?: null | string;
+        };
+        SendNotificationRequest: {
+            title: string;
+            content: string;
+            targetType: string;
+            recipientUserIds?: null | (number | string)[];
+            /** Format: int64 */
+            relatedSongId?: null | number | string;
+            /** Format: int64 */
+            relatedPlaylistId?: null | number | string;
+            /** Format: int64 */
+            relatedAlbumId?: null | number | string;
         };
         SongArtistRef: {
             /** Format: int64 */
@@ -3671,6 +4293,10 @@ export interface components {
             /** Format: int64 */
             totalPlays: number | string;
         };
+        UnreadCountDto: {
+            /** Format: int32 */
+            unreadCount: number | string;
+        };
         UpdateAdminUserRequest: {
             displayName: null | string;
             bio: null | string;
@@ -3687,6 +4313,7 @@ export interface components {
             clearReleaseDate: boolean;
             /** @default false */
             clearCover: boolean;
+            artistIds?: null | (number | string)[];
         };
         UpdateArtistRequest: {
             name: null | string;
@@ -3726,6 +4353,20 @@ export interface components {
             gender: null | string;
             avatarUrl: null | string;
         };
+        UpdateRecommendedRequest: {
+            /**
+             * Format: int32
+             * @default 0
+             */
+            sortOrder: number | string;
+            /**
+             * Format: int32
+             * @default 0
+             */
+            weight: number | string;
+            /** @default false */
+            isHidden: boolean;
+        };
         UpdateSongRequest: {
             title: null | string;
             /** Format: int64 */
@@ -3742,6 +4383,7 @@ export interface components {
             clearCategory: boolean;
             /** @default false */
             clearAlbum: boolean;
+            artistIds?: null | (number | string)[];
         };
         UserDto: {
             /** Format: int64 */

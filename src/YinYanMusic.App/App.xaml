@@ -17,6 +17,7 @@
                     <converters:CollectedTextConverter x:Key="CollectedText"/>
                     <converters:AbsoluteUrlConverter x:Key="AbsoluteUrl"/>
                     <converters:InitialConverter x:Key="Initial"/>   <!-- 无头像时的首字母头像 -->
+                    <converters:VolumePercentConverter x:Key="VolumePercent"/>   <!-- 音量 0-1 → 百分比 -->
                     <converters:AlbumSubtitleConverter x:Key="AlbumSubtitle"/> <!-- 专辑副标题：发行时间 · N 首 -->
 
                     <Color x:Key="PageBackground">#F6F6F9</Color>

@@ -8,12 +8,15 @@
 ;   installer\build-client-installer.ps1
 ;   等价于：
 ;     dotnet publish src\YinYanMusic.App\YinYanMusic.App.csproj -f net10.0-windows10.0.19041.0 `
-;         -c Release -p:RuntimeIdentifierOverride=win-x64 -p:SelfContained=true `
+;         -c Release -p:RuntimeIdentifierOverride=win-x64 -p:SelfContained=false `
 ;         -p:WindowsAppSDKSelfContained=true -o installer\build\client
 ;     ISCC.exe installer\client.iss /DMyClientVersion=2.2.0.0
 ;
 ; 安装结果：
-;   C:\Program Files\YinYanMusic\          客户端（自包含，目标机不需要装 .NET / Windows App Runtime）
+;   C:\Program Files\YinYanMusic\          客户端（框架依赖：不含 .NET 运行时；
+;                                          Windows App SDK 自包含，无需装 Windows App Runtime）
+;   .NET 桌面运行时 10 前置：安装时自动检测（见 PrepareToInstall），缺失时引导用户
+;   从微软官方下载并安装（aka.ms 永久链，始终指向 10.0 最新补丁版），装完继续安装
 ;   开始菜单 / 桌面快捷方式「音言音乐」
 ;   （可选）机器级环境变量 YINYAN_API_BASEURL = 安装时填的服务器地址
 ;   （可选）公钥证书 yinyan.pem，以及把它写入本机受信任根证书颁发机构的选项
@@ -69,7 +72,13 @@ VersionInfoCopyright=Copyright (C) 2026 {#MyAppPublisher}
 ; 用 {#MySignTool} 指定的签名工具签 setup.exe 与卸载器（SignedUninstaller 默认 yes）。
 ; 名字对应的命令来自 ISCC /S 参数；没有该参数时编译会直接失败，这是有意的
 ; ——宁可构建报错，也不要静默产出未签名的安装包。
-SignTool={#MySignTool}
+; 例外：一键脚本的 -NoSign 本地快速路径传 /DMySkipSign=1 显式跳过签名，
+; 此时卸载器签名也一并关掉（没有 SignTool 就签不了卸载器）。
+#ifndef MySkipSign
+  SignTool={#MySignTool}
+#else
+  SignedUninstaller=no
+#endif
 ; 签名工具是控制台程序，不设这个开关时它会新开一个控制台窗口在屏幕上闪一下。
 ; 签名一共被调用两次：先卸载器 uninst.e32.tmp，最后才是 setup.exe 本身。
 ; 只影响窗口显示，不影响签名结果。
@@ -88,6 +97,13 @@ chinese.LaunchApp=启动 {#MyAppName}
 chinese.SignGroup=签名与信任
 chinese.TrustTask=信任「{#MyAppPublisher}」的签名证书（写入本机受信任的根证书颁发机构）
 chinese.TrustStatusMsg=正在写入受信任的根证书颁发机构...
+; ── .NET 桌面运行时 10 前置（框架依赖发布带来的检测与引导，见 PrepareToInstall）──
+chinese.RuntimeAsk=本机未检测到音言音乐运行所需的「.NET 桌面运行时 10」。\n\n是否现在自动下载（约 55MB，微软官方）并安装？\n\n「是」= 自动下载并安装，完成后继续安装音言音乐；\n「否」= 打开微软官方下载页面，装好后请重新运行本安装程序。
+chinese.RuntimeDownloading=正在下载 .NET 桌面运行时 10（约 55MB，微软官方）...
+chinese.RuntimeInstalling=正在安装 .NET 桌面运行时 10...
+chinese.RuntimeReboot=.NET 桌面运行时已安装完成。系统提示需要重启才能完全生效，建议稍后重启。\n\n现在继续安装音言音乐。
+chinese.RuntimeAbortAuto=未能自动完成 .NET 桌面运行时 10 的安装（已为你打开微软官方下载页面）。\n请在官方页面下载并安装「.NET Desktop Runtime - Windows x64」后，重新运行本安装程序。
+chinese.RuntimeAbortDecline=安装已取消：请先安装 .NET 桌面运行时 10（已为你打开微软官方下载页面），完成后重新运行本安装程序。
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
@@ -97,7 +113,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "trustcert"; Description: "{cm:TrustTask}"; GroupDescription: "{cm:SignGroup}"; Flags: unchecked
 
 [Files]
-; 自包含客户端（约 280MB / 600+ 文件：.NET 运行时 + Windows App SDK 全在里面）
+; 框架依赖客户端（不含 .NET 运行时；Windows App SDK 自包含随包）。
+; .NET 桌面运行时 10 的检测与引导安装见 [Code] 的 PrepareToInstall。
 Source: "{#MyClientDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; 公钥证书（不含私钥）：随包附带，即使不勾选信任，用户或 IT 也能手动导入
 ; 私钥 yinyan.pfx 绝不能放进这里
@@ -125,6 +142,120 @@ Filename: "{sys}\certutil.exe"; Parameters: "-addstore -f Root ""{app}\{#MyCertF
 [Code]
 var
   ServerPage: TInputQueryWizardPage;
+
+// ── .NET 桌面运行时 10 前置：检测 + 引导安装 ──────────────────────────────────
+// 客户端是框架依赖发布（减小安装包体积），目标机必须有 .NET 桌面运行时 10
+// （Microsoft.WindowsDesktop.App 10.x）。Windows App SDK 已随包自包含，无需另装。
+const
+  // aka.ms 永久链：始终指向 10.0 的最新补丁版桌面运行时（win-x64）
+  RuntimeDownloadUrl = 'https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe';
+  RuntimeDownloadPage = 'https://dotnet.microsoft.com/download/dotnet/10.0';
+  RuntimeInstallerName = 'windowsdesktop-runtime-win-x64.exe';
+  // 官方安装器"装好但需要重启"的退出码
+  ERROR_SUCCESS_REBOOT_REQUIRED = 3010;
+
+/// 检测本机是否装有 .NET 桌面运行时 10：枚举 <dotnet根>\shared\Microsoft.WindowsDesktop.App
+/// 下的版本子目录，任一以 "10." 开头即视为可用。dotnet 根目录按 x64 机器级安装的
+/// 默认位置取（{pf}\dotnet）；应用本身就是 win-x64，x64 运行时只会装在这里。
+function DotNetDesktopRuntime10Installed(): Boolean;
+var
+  Dirs: String;
+  Fr: TFindRec;
+begin
+  Result := False;
+  Dirs := AddBackslash(ExpandConstant('{pf}')) + 'dotnet\shared\Microsoft.WindowsDesktop.App';
+  if not DirExists(Dirs) then Exit;
+  if FindFirst(Dirs + '\*', Fr) then
+  begin
+    try
+      repeat
+        if (Fr.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+          if Copy(Fr.Name, 1, 3) = '10.' then
+          begin
+            Result := True;
+            Exit;
+          end;
+      until not FindNext(Fr);
+    finally
+      FindClose(Fr);
+    end;
+  end;
+end;
+
+/// 用系统自带 curl.exe（Win10 19041+ 必有，正是本应用支持的最低系统）把官方运行时
+/// 安装器下载到临时目录。-f 让 HTTP 错误返回非 0，-L 跟随 aka.ms 的重定向。
+/// 下完做一次最小体积校验（真实安装器约 55MB），防止把错误页当成 exe 存下来。
+function DownloadRuntimeInstaller(var InstallerPath: String): Boolean;
+var
+  TmpFile: String;
+  Rc: Integer;
+  Fr: TFindRec;
+begin
+  Result := False;
+  InstallerPath := ExpandConstant('{tmp}\' + RuntimeInstallerName);
+  if not FileExists(ExpandConstant('{sys}\curl.exe')) then Exit;
+  if FileExists(InstallerPath) then DeleteFile(InstallerPath);
+  if not Exec(ExpandConstant('{sys}\curl.exe'),
+       '-f -L --retry 2 --connect-timeout 20 -o "' + InstallerPath + '" "' + RuntimeDownloadUrl + '"',
+       '', SW_HIDE, ewWaitUntilTerminated, Rc) then Exit;
+  if Rc <> 0 then Exit;
+  if not FindFirst(InstallerPath, Fr) then Exit;
+  try
+    Result := Fr.SizeLow > 10 * 1024 * 1024;   // 完整安装器约 55MB，明显小于它的一律当失败
+  finally
+    FindClose(Fr);
+  end;
+end;
+
+/// 静默安装官方运行时。安装进程继承本安装器的管理员令牌（PrivilegesRequired=admin）。
+/// /passive：显示进度条但不提问；/norestart：不自动重启。返回是否视为成功
+/// （0 = 成功；3010 = 成功但需要重启，由调用方提示）。
+function InstallRuntime(InstallerPath: String): Boolean;
+var
+  Rc: Integer;
+begin
+  WizardForm.StatusLabel.Caption := CustomMessage('RuntimeInstalling');
+  WizardForm.Repaint;
+  if Exec(InstallerPath, '/passive /norestart', '', SW_SHOW, ewWaitUntilTerminated, Rc) then
+  begin
+    if Rc = ERROR_SUCCESS_REBOOT_REQUIRED then
+      MsgBox(CustomMessage('RuntimeReboot'), mbInformation, MB_OK);
+    Result := (Rc = 0) or (Rc = ERROR_SUCCESS_REBOOT_REQUIRED);
+  end
+  else
+    Result := False;
+end;
+
+/// 安装正式开始前的最后一道闸：缺运行时就先补齐（自动，失败则打开官方下载页），
+/// 返回非空字符串即中止安装并向用户展示该消息。
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  InstallerPath: String;
+  Rc: Integer;
+begin
+  Result := '';
+  if DotNetDesktopRuntime10Installed() then Exit;
+
+  case MsgBox(CustomMessage('RuntimeAsk'), mbConfirmation, MB_YESNO) of
+    IDYES:
+      begin
+        WizardForm.StatusLabel.Caption := CustomMessage('RuntimeDownloading');
+        WizardForm.Repaint;
+        if DownloadRuntimeInstaller(InstallerPath) then
+        begin
+          if InstallRuntime(InstallerPath) then
+            Exit;   // 官方安装器返回 0/3010 即视为就绪，不再复查目录（避免自定义安装路径误判）
+        end;
+        ShellExec('open', RuntimeDownloadPage, '', '', SW_SHOWNORMAL, ewNoWait, Rc);
+        Result := CustomMessage('RuntimeAbortAuto');
+      end;
+    IDNO:
+      begin
+        ShellExec('open', RuntimeDownloadPage, '', '', SW_SHOWNORMAL, ewNoWait, Rc);
+        Result := CustomMessage('RuntimeAbortDecline');
+      end;
+  end;
+end;
 
 function GetServerUrl(Param: String): String;
 begin

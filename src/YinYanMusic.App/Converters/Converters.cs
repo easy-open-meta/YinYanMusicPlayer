@@ -127,3 +127,20 @@ public class InitialConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
+
+/// <summary>
+/// 音量 0.0–1.0 → 百分比文案（"72%"），给播放页音量浮窗的数字标签用。
+/// 底层刻度就是 0–1（MediaElement / AudioManager 归一化），0–100 只是展示层换算，
+/// 所以滑条保持绑定 Player.Volume 不动，这里只做 ×100 取整显示。
+/// </summary>
+public class VolumePercentConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var v = value is double d ? d : 0;
+        return $"{Math.Round(Math.Clamp(v, 0, 1) * 100)}%";
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

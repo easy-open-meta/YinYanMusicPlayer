@@ -222,15 +222,19 @@
                 Style="{StaticResource SurfacePopupDark}" Padding="14,10"
                 HorizontalOptions="Center" VerticalOptions="End"
                 Margin="0,0,0,82"
-                WidthRequest="240" HeightRequest="56">
-            <Grid ColumnDefinitions="24,*,24" ColumnSpacing="8" VerticalOptions="Center">
+                WidthRequest="264" HeightRequest="56">
+            <Grid ColumnDefinitions="24,*,34,24" ColumnSpacing="8" VerticalOptions="Center">
                 <Label Grid.Column="0" FontFamily="MaterialIcons" Text="&#xE04F;" FontSize="16" TextColor="White" VerticalOptions="Center"/>
                 <Slider Grid.Column="1" x:Name="VolumeSlider"
                         Minimum="0" Maximum="1"
                         MinimumTrackColor="{DynamicResource Primary}" MaximumTrackColor="{StaticResource Gray500}"
                         ThumbColor="White"
                         Value="{Binding Player.Volume, Mode=TwoWay}"/>
-                <Label Grid.Column="2" FontFamily="MaterialIcons" Text="&#xE050;" FontSize="16" TextColor="White" VerticalOptions="Center"/>
+                <!-- 0-1 是底层刻度（MediaElement/AudioManager 归一化），0-100 只是展示换算 -->
+                <Label Grid.Column="2" Text="{Binding Player.Volume, Converter={StaticResource VolumePercent}}"
+                       FontSize="12" TextColor="White" VerticalOptions="Center"
+                       WidthRequest="34" HorizontalTextAlignment="Center"/>
+                <Label Grid.Column="3" FontFamily="MaterialIcons" Text="&#xE050;" FontSize="16" TextColor="White" VerticalOptions="Center"/>
             </Grid>
         </Border>
 

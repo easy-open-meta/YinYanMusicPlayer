@@ -10,7 +10,7 @@ public interface IAuthService
 {
     Task<ServiceResult<AuthResponse>> RegisterAsync(RegisterRequest req);
     Task<ServiceResult<AuthResponse>> LoginAsync(LoginRequest req);
-    /// <summary>后台管理登录：必须是 <c>admin</c> 角色，且令牌有效期更短（8 小时）。</summary>
+    /// <summary>后台管理登录：必须是 <c>admin</c> 角色，令牌有效期与 App 端一致（7 天）。</summary>
     Task<ServiceResult<AuthResponse>> AdminLoginAsync(LoginRequest req);
     /// <summary>后台注册页是否还能创建超管（= 系统里还没有 admin）。</summary>
     Task<bool> CanCreateAdminAsync();
@@ -48,8 +48,8 @@ public class AuthService(MusicDbContext db, ITokenService tokens,
     private const string AdminRole = "admin";
     private const string UserRole = "user";
 
-    /// <summary>后台令牌有效期：8 小时（App 端仍用配置的 7 天）。</summary>
-    private static readonly TimeSpan AdminTokenLifetime = TimeSpan.FromHours(8);
+    /// <summary>后台令牌有效期：7 天，与 App 端配置一致。</summary>
+    private static readonly TimeSpan AdminTokenLifetime = TimeSpan.FromDays(7);
 
     // ── V2.5 邮箱验证码参数 ──────────────────────────────────────────────────
     private static readonly TimeSpan CodeLifetime = TimeSpan.FromMinutes(10);
@@ -108,7 +108,7 @@ public class AuthService(MusicDbContext db, ITokenService tokens,
 
         if (fromAdmin) bootstrap.Consume();     // 一次性：超管建成即销毁引导码
 
-        // 后台注册出来的令牌要跟着后台走（8 小时）——它是给浏览器用的，不能给 7 天的 App 令牌
+        // 后台注册出来的令牌（source=admin）同样走后台有效期，与后台登录一致
         var (token, expires) = tokens.CreateToken(user, fromAdmin ? AdminTokenLifetime : null);
         return ServiceResult<AuthResponse>.Ok(new AuthResponse(token, expires, ToDto(user)));
     }

@@ -290,7 +290,11 @@ public class AndroidLocalMediaScanner(LocalLibraryStore store) : ILocalMediaScan
     private static bool CheckNativePermission(string permission) =>
         global::Android.App.Application.Context.CheckSelfPermission(permission) == Permission.Granted;
 
-    private static Task<bool> RequestNativePermissionAsync(string permission)
+    /// <summary>
+    /// 运行时申请单条权限。除了本地扫描（读媒体），「保存封面」在 Android 9 及以下
+    /// 写公共 Download 时也走这里 —— 复用同一个桥接器（同一时刻只有一次申请）。
+    /// </summary>
+    internal static Task<bool> RequestNativePermissionAsync(string permission)
     {
         var tcs = new TaskCompletionSource<bool>();
 

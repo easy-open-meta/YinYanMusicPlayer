@@ -11,6 +11,9 @@
 	     maxSdkVersion=32 让 READ_EXTERNAL_STORAGE 在新系统上不参与合并，避免多余授权提示。 -->
 	<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+	<!-- 保存封面到公共 Download（CoverSaveService）：Android 10+ 走 MediaStore.Downloads 不需要权限；
+	     7~9 的公共目录直写才需要 WRITE_EXTERNAL_STORAGE，故 maxSdkVersion=28。 -->
+	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 	<!-- ⚠️ 明文 HTTP 策略由 ${nscRes} 占位符指向的**网络安全配置文件**决定（csproj 注入）：
 	     Debug → @xml/network_security_config_debug（明文全开，真机连局域网/本机后端必需）；
 	     其它 → @xml/network_security_config（严格：只走 HTTPS + 少量本地例外）。

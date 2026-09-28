@@ -4,14 +4,21 @@
 
 .DESCRIPTION
     四步：
-      1) 发布自包含客户端（目标机不需要装 .NET 10 / Windows App Runtime）
+      1) 发布框架依赖客户端（不含 .NET 运行时，大幅减小包体积；
+         Windows App SDK 仍自包含 —— 免去"再装一个 Windows App Runtime"的前置）
       2) 用证书给发布的客户端 exe 签名
       3) 检查 Inno Setup 编译器与中文语言包
       4) 用 Inno Setup 打包成单个 setup.exe，并给安装包与卸载器签名
 
     产物：
-        installer\build\client\                        客户端发布输出（约 280MB）
+        installer\build\client\                        客户端发布输出（框架依赖，约 180MB / 原 280MB）
         installer\build\out\YinYanMusic-Client-Setup-*.exe
+
+    运行时前置（2026-09-28 起）：
+        目标机需要 .NET 桌面运行时 10（Microsoft.WindowsDesktop.App 10.x）。
+        安装器在安装阶段自动检测：缺失时引导用户从微软官方（aka.ms 永久链）下载并
+        静默安装，装完继续；也可选择打开官方下载页手动装。见 client.iss 的
+        PrepareToInstall / DotNetDesktopRuntime10Installed。
 
     版本号默认取 App.csproj 的 <ApplicationDisplayVersion>（如 2.2.0），
     会补成 4 段（2.2.0.0）给安装包用，同时透传给 dotnet publish -p:Version。
@@ -89,21 +96,29 @@ if ($SkipPublish) {
         Fail "找不到 $ClientDir\$AppExeName，先不加 -SkipPublish 跑一次"
     }
 } else {
-    Write-Host '=== 1/4 发布客户端（win-x64 自包含）===' -ForegroundColor Cyan
+    Write-Host '=== 1/4 发布客户端（win-x64 框架依赖，不含 .NET 运行时）===' -ForegroundColor Cyan
     # ⚠️ 不能用 `-r win-x64`：这是全局属性，会渗到 App 的 android TFM（NU1102 找
     #    Microsoft.NETCore.App.Runtime.Mono.win-x64）以及被引用的 net10.0 工程（NETSDK1005）。
     #    用 MAUI/Windows SDK 认的 RuntimeIdentifierOverride 才只影响 Windows 目标。
+    # ⚠️ SelfContained=false：不带 .NET 运行时，目标机由安装器引导安装 ".NET 桌面运行时 10"。
+    #    WindowsAppSDKSelfContained 保持 true：Windows App SDK 仍打进包里，
+    #    免去目标机再装一个 "Windows App Runtime" 的前置（否则引导链就两条了）。
     dotnet publish $AppCsproj `
         -f net10.0-windows10.0.19041.0 `
         -c Release `
         -p:RuntimeIdentifierOverride=win-x64 `
-        -p:SelfContained=true `
+        -p:SelfContained=false `
         -p:WindowsAppSDKSelfContained=true `
         -p:Version=$Version `
         -o $ClientDir
     if ($LASTEXITCODE -ne 0) { Fail "dotnet publish 失败（exit $LASTEXITCODE）" }
     if (-not (Test-Path (Join-Path $ClientDir $AppExeName))) {
         Fail "发布完成，但 $ClientDir\$AppExeName 不存在"
+    }
+    # 自包含产物里才有 coreclr.dll / hostfxr.dll；出现了说明 SelfContained 没生效，
+    # 包体积会悄悄回到 280MB 且安装器的运行时检测形同虚设 —— 直接失败，宁可报错。
+    if (Test-Path (Join-Path $ClientDir 'coreclr.dll')) {
+        Fail '发布产物仍是自包含（发现 coreclr.dll）。检查 SelfContained=false 是否被其他属性覆盖。'
     }
 }
 
@@ -187,6 +202,11 @@ if (Test-Path $OutDir) {
 
 $isccArgs = @("/DMyClientVersion=$installerVersion")
 
+if ($NoSign) {
+    # 显式跳过签名：.iss 里靠这个开关不输出 SignTool 指令（否则没有 /S 会直接编译失败）
+    $isccArgs += '/DMySkipSign=1'
+}
+
 if (-not $NoSign) {
     # ⚠️ Inno Setup 6.x 只接受 [Setup] 里的 SignTool=<名字>，签名工具的**命令不能
     #    写在 .iss 里**（写了会报 Value of [Setup] section directive "SignTool" is invalid）。
@@ -220,4 +240,5 @@ if ($NoSign) {
 }
 Write-Host ''
 Write-Host '  安装后：程序 C:\Program Files\YinYanMusic\；快捷方式「音言音乐」；'
+Write-Host '          运行前置：.NET 桌面运行时 10 —— 安装器检测缺失时会自动引导下载安装；'
 Write-Host '          服务器地址若要预置，安装向导里填（写成机器级环境变量 YINYAN_API_BASEURL）。'
